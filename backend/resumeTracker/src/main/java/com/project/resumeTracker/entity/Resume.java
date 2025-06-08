@@ -7,12 +7,10 @@ import lombok.AllArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
 import java.time.LocalDateTime;
 import java.util.UUID;
-import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
 
 @Entity
 @Table(name = "resumes", indexes = {
@@ -56,9 +54,59 @@ public class Resume {
     @Column(name = "parsing_status", length = 20)
     private String parsingStatus = "pending";
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "parsed_data", columnDefinition = "jsonb")
-    private Map<String, Object> parsedData;
+    @OneToOne(mappedBy = "resume", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private PersonalDetails personalDetails;
+
+    @OneToMany(mappedBy = "resume", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<WorkExperience> workExperiences = new ArrayList<>();
+
+    @OneToMany(mappedBy = "resume", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Education> educations = new ArrayList<>();
+
+    @OneToMany(mappedBy = "resume", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Skill> skills = new ArrayList<>();
+
+    // Helper methods to manage bidirectional relationships (optional but good practice)
+    public void setPersonalDetails(PersonalDetails personalDetails) {
+        if (personalDetails == null) {
+            if (this.personalDetails != null) {
+                this.personalDetails.setResume(null);
+            }
+        } else {
+            personalDetails.setResume(this);
+        }
+        this.personalDetails = personalDetails;
+    }
+
+    public void addWorkExperience(WorkExperience workExperience) {
+        workExperiences.add(workExperience);
+        workExperience.setResume(this);
+    }
+
+    public void removeWorkExperience(WorkExperience workExperience) {
+        workExperiences.remove(workExperience);
+        workExperience.setResume(null);
+    }
+
+    public void addEducation(Education education) {
+        educations.add(education);
+        education.setResume(this);
+    }
+
+    public void removeEducation(Education education) {
+        educations.remove(education);
+        education.setResume(null);
+    }
+
+    public void addSkill(Skill skill) {
+        skills.add(skill);
+        skill.setResume(this);
+    }
+
+    public void removeSkill(Skill skill) {
+        skills.remove(skill);
+        skill.setResume(null);
+    }
 
     @CreationTimestamp
     @Column(name = "created_at")
