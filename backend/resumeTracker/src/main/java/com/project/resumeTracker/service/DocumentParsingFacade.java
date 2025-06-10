@@ -6,6 +6,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.apache.tika.Tika; // Using Apache Tika for robust MIME type detection
 
 import java.io.IOException;
+import java.io.InputStream;
 
 @Service
 @RequiredArgsConstructor
@@ -36,22 +37,23 @@ public class DocumentParsingFacade {
             }
         }
 
+        return parseDocument(file.getInputStream(), mimeType);
+    }
+
+    public String parseDocument(InputStream inputStream, String mimeType) throws IOException {
+        if (inputStream == null) {
+            throw new IllegalArgumentException("Input stream cannot be null.");
+        }
+        if (mimeType == null || mimeType.isBlank()) {
+            throw new IllegalArgumentException("MIME type cannot be null or blank.");
+        }
+
         if ("application/pdf".equalsIgnoreCase(mimeType)) {
-            return pdfParserService.extractText(file);
-        } else if ("application/msword".equalsIgnoreCase(mimeType) || 
+            return pdfParserService.extractText(inputStream);
+        } else if ("application/msword".equalsIgnoreCase(mimeType) ||
                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document".equalsIgnoreCase(mimeType)) {
-            return wordParserService.extractText(file);
+            return wordParserService.extractText(inputStream);
         } else {
-            // Check filename as a fallback or for more specific error
-            String originalFilename = file.getOriginalFilename();
-            if (originalFilename != null) {
-                if (originalFilename.toLowerCase().endsWith(".pdf")) {
-                    return pdfParserService.extractText(file);
-                }
-                if (originalFilename.toLowerCase().endsWith(".doc") || originalFilename.toLowerCase().endsWith(".docx")) {
-                    return wordParserService.extractText(file);
-                }
-            }
             throw new IllegalArgumentException("Unsupported file type: " + mimeType + ". Please upload a PDF, DOC, or DOCX file.");
         }
     }

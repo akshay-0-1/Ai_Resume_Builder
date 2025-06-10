@@ -27,6 +27,7 @@ public class ResumeService {
 
     private final ResumeRepository resumeRepository;
     private final ResumeDataService resumeDataService;
+    private final DocumentParsingFacade documentParsingFacade;
 
     private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
             "application/pdf",
@@ -59,8 +60,11 @@ public class ResumeService {
             savedResume = resumeRepository.save(resume);
             log.info("Resume metadata saved: {}. Attempting to parse.", savedResume.getId());
 
-            // Call ResumeDataService to parse and enrich the resume
-            savedResume = resumeDataService.parseAndEnrichResume(file, savedResume);
+            // 1. Parse text from the file first
+            String rawText = documentParsingFacade.parseDocument(file);
+
+            // 2. Call ResumeDataService to enrich the resume with the extracted text
+            savedResume = resumeDataService.parseAndEnrichResume(rawText, savedResume);
             log.info("Resume parsing completed for: {}. Status: {}", savedResume.getId(), savedResume.getParsingStatus());
 
             return mapToResponseDTO(savedResume);
@@ -90,34 +94,34 @@ public class ResumeService {
     }
 
     public Page<ResumeResponseDTO> getUserResumes(UUID userId, Pageable pageable) {
-        Page<Resume> resumes = resumeRepository.findByUserIdAndIsActiveTrue(userId, pageable);
+        Page<Resume> resumes = resumeRepository.findByUserIdAndIsActiveTrueOrderByUploadDateDesc(userId, pageable);
         return resumes.map(this::mapToResponseDTO);
     }
 
     public ResumeResponseDTO getResumeById(UUID resumeId, UUID userId) {
-        Resume resume = resumeRepository.findById(resumeId)
-                .orElseThrow(() -> new RuntimeException("Resume not found"));
-
-        if (!resume.getUserId().equals(userId)) {
-            throw new RuntimeException("Access denied");
-        }
-
+        Resume resume = getResumeForUser(resumeId, userId);
         return mapToResponseDTO(resume);
     }
 
     public void deleteResume(UUID resumeId, UUID userId) {
-        Resume resume = resumeRepository.findById(resumeId)
-                .orElseThrow(() -> new RuntimeException("Resume not found"));
-
-        if (!resume.getUserId().equals(userId)) {
-            throw new RuntimeException("Access denied");
-        }
+        Resume resume = getResumeForUser(resumeId, userId);
 
         // Soft delete
         resume.setIsActive(false);
         resumeRepository.save(resume);
 
         log.info("Resume deleted: {}", resumeId);
+    }
+
+    private Resume getResumeForUser(UUID resumeId, UUID userId) {
+        Resume resume = resumeRepository.findById(resumeId)
+                .orElseThrow(() -> new RuntimeException("Resume not found with ID: " + resumeId));
+
+        if (!resume.getUserId().equals(userId)) {
+            // Consider using a more specific, access-denied exception type
+            throw new RuntimeException("Access denied to resume with ID: " + resumeId);
+        }
+        return resume;
     }
 
     private void validateFile(MultipartFile file) {

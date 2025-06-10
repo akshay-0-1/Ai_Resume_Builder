@@ -1,6 +1,7 @@
 package com.project.resumeTracker.controller;
 
 import com.project.resumeTracker.dto.ApiResponse;
+import com.project.resumeTracker.dto.JobAnalysisRequestDTO;
 import com.project.resumeTracker.dto.JobAnalysisResponseDTO;
 import com.project.resumeTracker.dto.ResumeResponseDTO;
 import com.project.resumeTracker.entity.User;
@@ -16,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -64,23 +66,27 @@ public class ResumeController {
 
     @PostMapping("/analyze")
     public ResponseEntity<ApiResponse<JobAnalysisResponseDTO>> analyzeResumeForJob(
-            @RequestPart("resumeFile") MultipartFile resumeFile,
-            @RequestPart("jobDescription") String jobDescription,
+            @RequestBody JobAnalysisRequestDTO request,
             Authentication authentication) {
 
         try {
-            if (resumeFile.isEmpty()) {
+            String username = authentication.getName();
+            User user = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            UUID userId = getUserUUID(user.getId());
+
+            if (request.getResumeId() == null) {
                 return ResponseEntity.badRequest()
-                        .body(ApiResponse.error("Invalid request", "Resume file is empty."));
+                        .body(ApiResponse.error("Invalid request", "Resume ID is missing."));
             }
-            if (jobDescription == null || jobDescription.trim().isEmpty()) {
+            if (request.getJobDescription() == null || request.getJobDescription().trim().isEmpty()) {
                 return ResponseEntity.badRequest()
                         .body(ApiResponse.error("Invalid request", "Job description is empty."));
             }
 
-            JobAnalysisResponseDTO analysisResult = jobAnalysisService.analyzeResumeAndJobDescription(resumeFile, jobDescription);
+            JobAnalysisResponseDTO analysisResult = jobAnalysisService.analyzeResumeAndJobDescription(request.getResumeId(), request.getJobDescription(), userId);
 
-            if (analysisResult.getJobScore().startsWith("Error:")) { 
+            if (analysisResult.getJobScore() != null && analysisResult.getJobScore().startsWith("Error:")) { 
                  return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                         .body(ApiResponse.error("Analysis failed", analysisResult.getImprovementHighlights()));
             }
@@ -91,6 +97,9 @@ public class ResumeController {
             log.warn("Invalid arguments for analysis: {}", e.getMessage());
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Invalid request", e.getMessage()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error("Resource not found", e.getMessage()));
         } catch (Exception e) {
             log.error("Error during resume analysis: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

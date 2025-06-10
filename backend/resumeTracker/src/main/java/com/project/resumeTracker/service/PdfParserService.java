@@ -13,12 +13,17 @@ public class PdfParserService implements DocumentParserService {
 
     @Override
     public String extractText(MultipartFile file) throws IOException {
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("File is null or empty");
+        if (file.isEmpty()) {
+            throw new IOException("Failed to parse empty file.");
         }
+        try (InputStream inputStream = file.getInputStream()) {
+            return extractText(inputStream);
+        }
+    }
 
-        try (InputStream inputStream = file.getInputStream();
-             PDDocument document = PDDocument.load(inputStream)) {
+    @Override
+    public String extractText(InputStream inputStream) throws IOException {
+        try (PDDocument document = PDDocument.load(inputStream)) {
             PDFTextStripper pdfStripper = new PDFTextStripper();
             return pdfStripper.getText(document);
         }

@@ -1,5 +1,7 @@
 package com.project.resumeTracker.service;
 
+import org.apache.poi.extractor.ExtractorFactory;
+import org.apache.poi.extractor.POITextExtractor;
 import org.apache.poi.hwpf.HWPFDocument;
 import org.apache.poi.hwpf.extractor.WordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -18,26 +20,20 @@ public class WordParserService implements DocumentParserService {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File is null or empty");
         }
-
-        String fileName = file.getOriginalFilename();
-        if (fileName == null) {
-            throw new IllegalArgumentException("File name is null");
-        }
-
         try (InputStream inputStream = file.getInputStream()) {
-            if (fileName.toLowerCase().endsWith(".docx")) {
-                try (XWPFDocument document = new XWPFDocument(inputStream);
-                     XWPFWordExtractor extractor = new XWPFWordExtractor(document)) {
-                    return extractor.getText();
-                }
-            } else if (fileName.toLowerCase().endsWith(".doc")) {
-                try (HWPFDocument document = new HWPFDocument(inputStream);
-                     WordExtractor extractor = new WordExtractor(document)) {
-                    return extractor.getText();
-                }
-            } else {
-                throw new IllegalArgumentException("Unsupported Word document format: " + fileName);
-            }
+            return extractText(inputStream);
+        }
+    }
+
+    @Override
+    public String extractText(InputStream inputStream) throws IOException {
+        if (inputStream == null) {
+            throw new IllegalArgumentException("Input stream is null");
+        }
+        try (POITextExtractor extractor = ExtractorFactory.createExtractor(inputStream)) {
+            return extractor.getText();
+        } catch (Exception e) {
+            throw new IOException("Failed to extract text from Word document stream", e);
         }
     }
 }
