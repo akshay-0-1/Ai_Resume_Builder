@@ -1,5 +1,8 @@
 package com.project.resumeTracker.service;
 
+/*
+ * This service is no longer in use after migrating file storage to the database.
+ * It is recommended to delete this file.
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -9,7 +12,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import jakarta.annotation.PostConstruct;
-
 
 @Service
 @Slf4j
@@ -114,3 +116,4 @@ public class SupabaseStorageService {
         return supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + filename;
     }
 }
+*/

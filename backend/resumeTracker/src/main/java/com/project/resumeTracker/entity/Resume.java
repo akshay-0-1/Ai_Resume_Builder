@@ -6,6 +6,8 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -23,7 +25,7 @@ import java.util.ArrayList;
 public class Resume {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(name = "user_id", nullable = false)
@@ -41,12 +43,9 @@ public class Resume {
     @Column(name = "mime_type", nullable = false)
     private String mimeType;
 
-    @Column(name = "file_url", nullable = false, length = 1000)
-    private String fileUrl;
-
-    @Column(name = "upload_date")
-    @CreationTimestamp
-    private LocalDateTime uploadDate;
+    @JdbcTypeCode(SqlTypes.VARBINARY)
+    @Column(name = "file_data")
+    private byte[] fileData;
 
     @Column(name = "is_active")
     private Boolean isActive = true;
@@ -65,6 +64,14 @@ public class Resume {
 
     @OneToMany(mappedBy = "resume", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Skill> skills = new ArrayList<>();
+
+    @CreationTimestamp
+    @Column(name = "upload_date", updatable = false)
+    private LocalDateTime uploadDate;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     // Helper methods to manage bidirectional relationships (optional but good practice)
     public void setPersonalDetails(PersonalDetails personalDetails) {
@@ -107,12 +114,4 @@ public class Resume {
         skills.remove(skill);
         skill.setResume(null);
     }
-
-    @CreationTimestamp
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @UpdateTimestamp
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
 }

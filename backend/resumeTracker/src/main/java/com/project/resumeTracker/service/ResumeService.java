@@ -26,11 +26,7 @@ import java.util.stream.Collectors;
 public class ResumeService {
 
     private final ResumeRepository resumeRepository;
-    private final SupabaseStorageService storageService;
     private final ResumeDataService resumeDataService;
-
-    @Value("${supabase.storage.bucket}")
-    private String bucketName;
 
     private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
             "application/pdf",
@@ -49,17 +45,14 @@ public class ResumeService {
             String fileExtension = getFileExtension(file.getOriginalFilename());
             String uniqueFilename = userId + "/" + UUID.randomUUID() + fileExtension;
 
-            // Upload to Supabase Storage
-            String fileUrl = storageService.uploadFile(bucketName, uniqueFilename, file);
-
-            // Save initial metadata to database
+            // Save initial metadata and file data to database
             Resume resume = new Resume();
             resume.setUserId(userId);
             resume.setFilename(uniqueFilename);
             resume.setOriginalFilename(file.getOriginalFilename());
             resume.setFileSize(file.getSize());
             resume.setMimeType(file.getContentType());
-            resume.setFileUrl(fileUrl);
+            resume.setFileData(file.getBytes()); // Store file bytes
             resume.setParsingStatus("PENDING"); // Initial status
             resume.setIsActive(true);
 
@@ -124,9 +117,6 @@ public class ResumeService {
         resume.setIsActive(false);
         resumeRepository.save(resume);
 
-        // TODO: Delete from storage (optional)
-        // storageService.deleteFile(bucketName, resume.getFilename());
-
         log.info("Resume deleted: {}", resumeId);
     }
 
@@ -174,7 +164,7 @@ public class ResumeService {
                 workExperience.getLocation(),
                 workExperience.getStartDate(),
                 workExperience.getEndDate(),
-                workExperience  .isCurrentJob(),
+                workExperience.isCurrentJob(),
                 workExperience.getDescription()
         );
     }
@@ -203,35 +193,28 @@ public class ResumeService {
     private ResumeResponseDTO mapToResponseDTO(Resume resume) {
         if (resume == null) return null;
 
-        PersonalDetailsDTO personalDetailsDTO = mapPersonalDetailsToDTO(resume.getPersonalDetails());
+        ResumeResponseDTO dto = new ResumeResponseDTO();
+        dto.setId(resume.getId());
+        dto.setOriginalFilename(resume.getOriginalFilename());
+        dto.setFileSize(resume.getFileSize());
+        dto.setMimeType(resume.getMimeType());
+        dto.setUploadDate(resume.getUploadDate());
+        dto.setParsingStatus(resume.getParsingStatus());
 
-        List<WorkExperienceDTO> workExperienceDTOs =
-                resume.getWorkExperiences() != null ? resume.getWorkExperiences().stream()
-                        .map(this::mapWorkExperienceToDTO)
-                        .collect(Collectors.toList()) : Collections.emptyList();
+        // Map parsed data if available
+        if (resume.getPersonalDetails() != null) {
+            dto.setPersonalDetails(mapPersonalDetailsToDTO(resume.getPersonalDetails()));
+        }
+        if (resume.getWorkExperiences() != null) {
+            dto.setWorkExperiences(resume.getWorkExperiences().stream().map(this::mapWorkExperienceToDTO).collect(Collectors.toList()));
+        }
+        if (resume.getEducations() != null) {
+            dto.setEducations(resume.getEducations().stream().map(this::mapEducationToDTO).collect(Collectors.toList()));
+        }
+        if (resume.getSkills() != null) {
+            dto.setSkills(resume.getSkills().stream().map(this::mapSkillToDTO).collect(Collectors.toList()));
+        }
 
-        List<EducationDTO> educationDTOs =
-                resume.getEducations() != null ? resume.getEducations().stream()
-                        .map(this::mapEducationToDTO)
-                        .collect(Collectors.toList()) : Collections.emptyList();
-
-        List<SkillDTO> skillDTOs =
-                resume.getSkills() != null ? resume.getSkills().stream()
-                        .map(this::mapSkillToDTO)
-                        .collect(Collectors.toList()) : Collections.emptyList();
-
-        return new ResumeResponseDTO(
-                resume.getId(),
-                resume.getOriginalFilename(),
-                resume.getFileSize(),
-                resume.getMimeType(),
-                resume.getUploadDate(),
-                resume.getParsingStatus(),
-                resume.getFileUrl(),
-                personalDetailsDTO,
-                workExperienceDTOs,
-                educationDTOs,
-                skillDTOs
-        );
+        return dto;
     }
 }

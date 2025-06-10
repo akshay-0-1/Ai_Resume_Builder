@@ -1,9 +1,11 @@
 package com.project.resumeTracker.controller;
 
 import com.project.resumeTracker.dto.ApiResponse;
+import com.project.resumeTracker.dto.JobAnalysisResponseDTO;
 import com.project.resumeTracker.dto.ResumeResponseDTO;
 import com.project.resumeTracker.entity.User;
 import com.project.resumeTracker.repository.UserRepository;
+import com.project.resumeTracker.service.JobAnalysisService;
 import com.project.resumeTracker.service.ResumeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +27,7 @@ public class ResumeController {
 
     private final ResumeService resumeService;
     private final UserRepository userRepository;
+    private final JobAnalysisService jobAnalysisService;
 
     private UUID getUserUUID(Long userId) {
         // Create a deterministic UUID based on the user's ID
@@ -56,6 +59,42 @@ public class ResumeController {
             log.error("Error uploading resume: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Upload failed", "Internal server error"));
+        }
+    }
+
+    @PostMapping("/analyze")
+    public ResponseEntity<ApiResponse<JobAnalysisResponseDTO>> analyzeResumeForJob(
+            @RequestPart("resumeFile") MultipartFile resumeFile,
+            @RequestPart("jobDescription") String jobDescription,
+            Authentication authentication) {
+
+        try {
+            if (resumeFile.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Invalid request", "Resume file is empty."));
+            }
+            if (jobDescription == null || jobDescription.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Invalid request", "Job description is empty."));
+            }
+
+            JobAnalysisResponseDTO analysisResult = jobAnalysisService.analyzeResumeAndJobDescription(resumeFile, jobDescription);
+
+            if (analysisResult.getJobScore().startsWith("Error:")) { 
+                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(ApiResponse.error("Analysis failed", analysisResult.getImprovementHighlights()));
+            }
+
+            return ResponseEntity.ok(ApiResponse.success("Analysis successful", analysisResult));
+
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid arguments for analysis: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Invalid request", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error during resume analysis: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Analysis failed", "Internal server error: " + e.getMessage()));
         }
     }
 

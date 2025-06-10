@@ -18,7 +18,6 @@ public class ResumeResponseDTO {
     private String mimeType;
     private LocalDateTime uploadDate;
     private String parsingStatus;
-    private String fileUrl;
 
     // Parsed data
     private PersonalDetailsDTO personalDetails;
@@ -27,13 +26,12 @@ public class ResumeResponseDTO {
     private List<SkillDTO> skills;
 
     // Constructor for basic info (before parsing)
-    public ResumeResponseDTO(UUID id, String originalFilename, Long fileSize, String mimeType, LocalDateTime uploadDate, String parsingStatus, String fileUrl) {
+    public ResumeResponseDTO(UUID id, String originalFilename, Long fileSize, String mimeType, LocalDateTime uploadDate, String parsingStatus) {
         this.id = id;
         this.originalFilename = originalFilename;
         this.fileSize = fileSize;
         this.mimeType = mimeType;
         this.uploadDate = uploadDate;
         this.parsingStatus = parsingStatus;
-        this.fileUrl = fileUrl;
     }
 }
