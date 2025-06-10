@@ -4,6 +4,7 @@ import com.project.resumeTracker.dto.ApiResponse;
 import com.project.resumeTracker.dto.JobAnalysisRequestDTO;
 import com.project.resumeTracker.dto.JobAnalysisResponseDTO;
 import com.project.resumeTracker.dto.ResumeResponseDTO;
+import com.project.resumeTracker.dto.ResumeInfoDTO;
 import com.project.resumeTracker.entity.User;
 import com.project.resumeTracker.repository.UserRepository;
 import com.project.resumeTracker.service.JobAnalysisService;
@@ -108,7 +109,7 @@ public class ResumeController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<ResumeResponseDTO>>> getUserResumes(
+    public ResponseEntity<ApiResponse<List<ResumeInfoDTO>>> getUserResumes(
             Authentication authentication,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
@@ -122,11 +123,11 @@ public class ResumeController {
             UUID userId = getUserUUID(user.getId());
 
             if (page >= 0 && size > 0) {
-                Page<ResumeResponseDTO> resumes = resumeService.getUserResumes(
+                Page<ResumeInfoDTO> resumes = resumeService.getUserResumes(
                         userId, PageRequest.of(page, size));
                 return ResponseEntity.ok(ApiResponse.success("Resumes retrieved", resumes.getContent()));
             } else {
-                List<ResumeResponseDTO> resumes = resumeService.getUserResumes(userId);
+                List<ResumeInfoDTO> resumes = resumeService.getUserResumes(userId);
                 return ResponseEntity.ok(ApiResponse.success("Resumes retrieved", resumes));
             }
 

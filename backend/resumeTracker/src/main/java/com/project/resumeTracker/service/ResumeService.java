@@ -1,20 +1,25 @@
 package com.project.resumeTracker.service;
 
+import com.project.resumeTracker.dto.EducationDTO;
+import com.project.resumeTracker.dto.PersonalDetailsDTO;
+import com.project.resumeTracker.dto.ResumeInfoDTO;
 import com.project.resumeTracker.dto.ResumeResponseDTO;
+import com.project.resumeTracker.dto.SkillDTO;
+import com.project.resumeTracker.dto.WorkExperienceDTO;
+import com.project.resumeTracker.entity.Education;
+import com.project.resumeTracker.entity.PersonalDetails;
 import com.project.resumeTracker.entity.Resume;
+import com.project.resumeTracker.entity.Skill;
+import com.project.resumeTracker.entity.WorkExperience;
 import com.project.resumeTracker.repository.ResumeRepository;
-import com.project.resumeTracker.dto.*;
-import com.project.resumeTracker.entity.*;
-import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.Collections;
+import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -42,32 +47,27 @@ public class ResumeService {
 
         Resume savedResume = null;
         try {
-            // Generate unique filename
             String fileExtension = getFileExtension(file.getOriginalFilename());
             String uniqueFilename = userId + "/" + UUID.randomUUID() + fileExtension;
 
-            // Save initial metadata and file data to database
             Resume resume = new Resume();
             resume.setUserId(userId);
             resume.setFilename(uniqueFilename);
             resume.setOriginalFilename(file.getOriginalFilename());
             resume.setFileSize(file.getSize());
             resume.setMimeType(file.getContentType());
-            resume.setFileData(file.getBytes()); // Store file bytes
-            resume.setParsingStatus("PENDING"); // Initial status
+            resume.setFileData(file.getBytes());
+            resume.setParsingStatus("PENDING");
             resume.setIsActive(true);
 
             savedResume = resumeRepository.save(resume);
             log.info("Resume metadata saved: {}. Attempting to parse.", savedResume.getId());
 
-            // 1. Parse text from the file first
             String rawText = documentParsingFacade.parseDocument(file);
-
-            // 2. Call ResumeDataService to enrich the resume with the extracted text
             savedResume = resumeDataService.parseAndEnrichResume(rawText, savedResume);
             log.info("Resume parsing completed for: {}. Status: {}", savedResume.getId(), savedResume.getParsingStatus());
 
-            return mapToResponseDTO(savedResume);
+            return convertToResponseDTO(savedResume);
 
         } catch (IOException e) {
             log.error("IO Error during resume processing for user {}: {}", userId, e.getMessage(), e);
@@ -86,53 +86,40 @@ public class ResumeService {
         }
     }
 
-    public List<ResumeResponseDTO> getUserResumes(UUID userId) {
-        List<Resume> resumes = resumeRepository.findActiveResumesByUserIdOrderByDate(userId);
+    public List<ResumeInfoDTO> getUserResumes(UUID userId) {
+        List<Resume> resumes = resumeRepository.findByUserIdAndIsActiveTrueOrderByUploadDateDesc(userId);
         return resumes.stream()
-                .map(this::mapToResponseDTO)
+                .map(this::convertToInfoDTO)
                 .collect(Collectors.toList());
     }
 
-    public Page<ResumeResponseDTO> getUserResumes(UUID userId, Pageable pageable) {
+    public Page<ResumeInfoDTO> getUserResumes(UUID userId, Pageable pageable) {
         Page<Resume> resumes = resumeRepository.findByUserIdAndIsActiveTrueOrderByUploadDateDesc(userId, pageable);
-        return resumes.map(this::mapToResponseDTO);
+        return resumes.map(this::convertToInfoDTO);
     }
 
     public ResumeResponseDTO getResumeById(UUID resumeId, UUID userId) {
-        Resume resume = getResumeForUser(resumeId, userId);
-        return mapToResponseDTO(resume);
+        Resume resume = resumeRepository.findByIdAndUserId(resumeId, userId)
+                .orElseThrow(() -> new RuntimeException("Resume not found or access denied."));
+        return convertToResponseDTO(resume);
     }
 
     public void deleteResume(UUID resumeId, UUID userId) {
-        Resume resume = getResumeForUser(resumeId, userId);
+        Resume resume = resumeRepository.findByIdAndUserId(resumeId, userId)
+                .orElseThrow(() -> new RuntimeException("Resume not found or access denied."));
 
-        // Soft delete
         resume.setIsActive(false);
         resumeRepository.save(resume);
-
         log.info("Resume deleted: {}", resumeId);
-    }
-
-    private Resume getResumeForUser(UUID resumeId, UUID userId) {
-        Resume resume = resumeRepository.findById(resumeId)
-                .orElseThrow(() -> new RuntimeException("Resume not found with ID: " + resumeId));
-
-        if (!resume.getUserId().equals(userId)) {
-            // Consider using a more specific, access-denied exception type
-            throw new RuntimeException("Access denied to resume with ID: " + resumeId);
-        }
-        return resume;
     }
 
     private void validateFile(MultipartFile file) {
         if (file.isEmpty()) {
             throw new IllegalArgumentException("File is empty");
         }
-
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new IllegalArgumentException("File size exceeds maximum limit of 10MB");
         }
-
         if (!ALLOWED_MIME_TYPES.contains(file.getContentType())) {
             throw new IllegalArgumentException("Invalid file type. Only PDF, DOC, and DOCX files are allowed");
         }
@@ -146,57 +133,8 @@ public class ResumeService {
         return lastDotIndex >= 0 ? filename.substring(lastDotIndex) : "";
     }
 
-    private PersonalDetailsDTO mapPersonalDetailsToDTO(PersonalDetails personalDetails) {
-        if (personalDetails == null) return null;
-        return new PersonalDetailsDTO(
-                personalDetails.getName(),
-                personalDetails.getEmail(),
-                personalDetails.getPhone(),
-                personalDetails.getAddress(),
-                personalDetails.getLinkedinUrl(),
-                personalDetails.getGithubUrl(),
-                personalDetails.getPortfolioUrl(),
-                personalDetails.getSummary()
-        );
-    }
-
-    private WorkExperienceDTO mapWorkExperienceToDTO(WorkExperience workExperience) {
-        if (workExperience == null) return null;
-        return new WorkExperienceDTO(
-                workExperience.getJobTitle(),
-                workExperience.getCompanyName(),
-                workExperience.getLocation(),
-                workExperience.getStartDate(),
-                workExperience.getEndDate(),
-                workExperience.isCurrentJob(),
-                workExperience.getDescription()
-        );
-    }
-
-    private EducationDTO mapEducationToDTO(Education education) {
-        if (education == null) return null;
-        return new EducationDTO(
-                education.getInstitutionName(),
-                education.getDegree(),
-                education.getFieldOfStudy(),
-                education.getStartDate(),
-                education.getEndDate(),
-                education.getGrade(),
-                education.getDescription()
-        );
-    }
-
-    private SkillDTO mapSkillToDTO(Skill skill) {
-        if (skill == null) return null;
-        return new SkillDTO(
-                skill.getSkillName(),
-                skill.getProficiencyLevel()
-        );
-    }
-
-    private ResumeResponseDTO mapToResponseDTO(Resume resume) {
+    private ResumeResponseDTO convertToResponseDTO(Resume resume) {
         if (resume == null) return null;
-
         ResumeResponseDTO dto = new ResumeResponseDTO();
         dto.setId(resume.getId());
         dto.setOriginalFilename(resume.getOriginalFilename());
@@ -205,7 +143,6 @@ public class ResumeService {
         dto.setUploadDate(resume.getUploadDate());
         dto.setParsingStatus(resume.getParsingStatus());
 
-        // Map parsed data if available
         if (resume.getPersonalDetails() != null) {
             dto.setPersonalDetails(mapPersonalDetailsToDTO(resume.getPersonalDetails()));
         }
@@ -218,7 +155,30 @@ public class ResumeService {
         if (resume.getSkills() != null) {
             dto.setSkills(resume.getSkills().stream().map(this::mapSkillToDTO).collect(Collectors.toList()));
         }
-
         return dto;
+    }
+
+    private PersonalDetailsDTO mapPersonalDetailsToDTO(PersonalDetails personalDetails) {
+        if (personalDetails == null) return null;
+        return new PersonalDetailsDTO(personalDetails.getName(), personalDetails.getEmail(), personalDetails.getPhone(), personalDetails.getAddress(), personalDetails.getLinkedinUrl(), personalDetails.getGithubUrl(), personalDetails.getPortfolioUrl(), personalDetails.getSummary());
+    }
+
+    private WorkExperienceDTO mapWorkExperienceToDTO(WorkExperience workExperience) {
+        if (workExperience == null) return null;
+        return new WorkExperienceDTO(workExperience.getJobTitle(), workExperience.getCompanyName(), workExperience.getLocation(), workExperience.getStartDate(), workExperience.getEndDate(), workExperience.isCurrentJob(), workExperience.getDescription());
+    }
+
+    private EducationDTO mapEducationToDTO(Education education) {
+        if (education == null) return null;
+        return new EducationDTO(education.getInstitutionName(), education.getDegree(), education.getFieldOfStudy(), education.getStartDate(), education.getEndDate(), education.getGrade(), education.getDescription());
+    }
+
+    private SkillDTO mapSkillToDTO(Skill skill) {
+        if (skill == null) return null;
+        return new SkillDTO(skill.getSkillName(), skill.getProficiencyLevel());
+    }
+
+    private ResumeInfoDTO convertToInfoDTO(Resume resume) {
+        return new ResumeInfoDTO(resume.getId(), resume.getOriginalFilename());
     }
 }

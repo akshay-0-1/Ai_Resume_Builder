@@ -14,11 +14,12 @@ import java.util.UUID;
 @Repository
 public interface ResumeRepository extends JpaRepository<Resume, UUID> {
 
-    @Query("SELECT r FROM Resume r WHERE r.userId = :userId AND r.isActive = true ORDER BY r.uploadDate DESC")
-    List<Resume> findActiveResumesByUserIdOrderByDate(UUID userId);
+    List<Resume> findByUserIdAndIsActiveTrueOrderByUploadDateDesc(UUID userId);
 
     Page<Resume> findByUserIdAndIsActiveTrueOrderByUploadDateDesc(UUID userId, Pageable pageable);
 
     Optional<Resume> findByIdAndUserId(UUID id, UUID userId);
+
+    boolean existsByIdAndUserId(UUID id, UUID userId);
 
 }
