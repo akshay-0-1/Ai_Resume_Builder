@@ -1,19 +1,21 @@
 package com.project.resumeTracker.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.resumeTracker.dto.JobAnalysisResponseDTO;
+import com.project.resumeTracker.dto.TargetedChangeDTO;
 import com.project.resumeTracker.entity.Resume;
 import com.project.resumeTracker.repository.ResumeRepository;
-import com.project.resumeTracker.service.DocumentParsingFacade;
-import com.project.resumeTracker.service.GeminiService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Service
 @Slf4j
@@ -23,6 +25,7 @@ public class JobAnalysisServiceImpl implements JobAnalysisService {
     private final DocumentParsingFacade documentParsingFacade;
     private final ResumeRepository resumeRepository;
     private final GeminiService geminiService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public JobAnalysisResponseDTO analyzeResumeAndJobDescription(UUID resumeId, String jobDescription, UUID userId) {
@@ -50,58 +53,55 @@ public class JobAnalysisServiceImpl implements JobAnalysisService {
             log.info("Received response from Gemini API.");
             log.debug("Gemini raw response: {}", fullResponseText);
 
-            String jobScore = parseValue(fullResponseText, "Job Score:");
-            String improvementHighlights = parseValue(fullResponseText, "Improvement Highlights:");
-
-            if (jobScore.isEmpty() && improvementHighlights.isEmpty() && !fullResponseText.isEmpty()) {
-                log.warn("Could not parse specific fields from Gemini response. Returning full text as highlights.");
-                return new JobAnalysisResponseDTO("See highlights for score", fullResponseText);
-            }
-
-            return new JobAnalysisResponseDTO(jobScore.isEmpty() ? "Score not found" : jobScore,
-                                            improvementHighlights.isEmpty() ? "Highlights not found" : improvementHighlights);
+            return parseJsonResponse(fullResponseText);
 
         } catch (Exception e) {
-            log.error("Error during Gemini API call: {}", e.getMessage(), e);
+            log.error("Error during Gemini API call or JSON parsing: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to analyze resume and job description with Gemini API.", e);
         }
     }
 
     private String buildAnalysisPrompt(String resumeText, String jobDescription) {
         return String.format(
-            "Analyze the following resume against the provided job description.\n"
-            + "Provide a job score as a percentage (e.g., '85%%') indicating the resume's alignment with the job description. Briefly explain the score.\n"
-            + "Also, provide 3-5 specific, actionable bullet points for resume improvement highlights, tailored to this job description. Format the highlights as a bulleted list.\n\n"
+            "Analyze the following resume against the provided job description and return your analysis in a strict JSON format. "
+            + "The JSON object must have three keys: 'jobScore' (an integer from 0 to 100), 'targetedChanges' (a JSON array of objects, where each object has 'section' and 'suggestion' keys for specific, actionable changes), and 'overallImprovements' (a JSON array of strings for general feedback)."
+            + "'section' should indicate the part of the resume to change (e.g., 'Summary', 'Skills', 'Project Experience')."
+            + "'suggestion' should be a concrete instruction, like 'Change project description to...' or 'Add the skill...'."
+            + "Do not include any text or formatting outside of the JSON object itself.\n\n"
             + "Resume Text:\n%s\n\n"
             + "Job Description:\n%s",
             resumeText, jobDescription
         );
     }
 
-    private String parseValue(String responseText, String key) {
-        Pattern keyPattern = Pattern.compile("(?i)" + Pattern.quote(key));
-        Matcher matcher = keyPattern.matcher(responseText);
-
-        if (!matcher.find()) {
-            log.warn("Key '{}' not found in response.", key);
-            return "";
+    private JobAnalysisResponseDTO parseJsonResponse(String jsonResponse) throws JsonProcessingException {
+        String cleanedJson = jsonResponse.trim().replace("`", "");
+        if (cleanedJson.startsWith("json")) {
+            cleanedJson = cleanedJson.substring(4).trim();
         }
 
-        int startIndex = matcher.end();
+        JsonNode rootNode = objectMapper.readTree(cleanedJson);
 
-        if (startIndex >= responseText.length()) {
-            log.warn("Key '{}' found, but no content after it.", key);
-            return "";
-        }
+        int score = rootNode.path("jobScore").asInt(0);
 
-        int endIndex = responseText.indexOf("\n\n", startIndex);
-        if (endIndex == -1) {
-            endIndex = responseText.indexOf("\n", startIndex);
-            if (endIndex == -1) {
-                endIndex = responseText.length();
+        List<TargetedChangeDTO> targetedChanges = new ArrayList<>();
+        JsonNode targetedChangesNode = rootNode.path("targetedChanges");
+        if (targetedChangesNode.isArray()) {
+            for (JsonNode changeNode : targetedChangesNode) {
+                String section = changeNode.path("section").asText();
+                String suggestion = changeNode.path("suggestion").asText();
+                targetedChanges.add(new TargetedChangeDTO(section, suggestion));
             }
         }
 
-        return responseText.substring(startIndex, endIndex).trim();
+        List<String> overallImprovements = new ArrayList<>();
+        JsonNode improvementsNode = rootNode.path("overallImprovements");
+        if (improvementsNode.isArray()) {
+            for (JsonNode improvement : improvementsNode) {
+                overallImprovements.add(improvement.asText());
+            }
+        }
+
+        return new JobAnalysisResponseDTO(score, targetedChanges, overallImprovements);
     }
 }

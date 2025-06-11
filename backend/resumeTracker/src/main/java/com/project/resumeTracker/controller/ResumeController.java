@@ -87,9 +87,11 @@ public class ResumeController {
 
             JobAnalysisResponseDTO analysisResult = jobAnalysisService.analyzeResumeAndJobDescription(request.getResumeId(), request.getJobDescription(), userId);
 
-            if (analysisResult.getJobScore() != null && analysisResult.getJobScore().startsWith("Error:")) { 
+            // Check if the analysis was successful. A failure is assumed if both targeted and overall improvements are missing.
+            if ((analysisResult.getTargetedChanges() == null || analysisResult.getTargetedChanges().isEmpty()) &&
+                (analysisResult.getOverallImprovements() == null || analysisResult.getOverallImprovements().isEmpty())) {
                  return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body(ApiResponse.error("Analysis failed", analysisResult.getImprovementHighlights()));
+                        .body(ApiResponse.error("Analysis failed", "Could not generate improvement suggestions."));
             }
 
             return ResponseEntity.ok(ApiResponse.success("Analysis successful", analysisResult));

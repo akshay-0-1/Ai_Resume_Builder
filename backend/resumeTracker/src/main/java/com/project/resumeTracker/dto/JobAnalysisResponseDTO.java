@@ -4,10 +4,13 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class JobAnalysisResponseDTO {
-    private String jobScore; // Or could be a more complex object if the score has details
-    private String improvementHighlights; // Or List<String>
+    private int jobScore;
+    private List<TargetedChangeDTO> targetedChanges;
+    private List<String> overallImprovements;
 }
