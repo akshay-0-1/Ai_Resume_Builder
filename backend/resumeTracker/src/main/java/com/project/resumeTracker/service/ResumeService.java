@@ -78,11 +78,17 @@ public class ResumeService {
             throw e;
         } catch (Exception e) {
             log.error("General Error uploading/parsing resume for user {}: {}", userId, e.getMessage(), e);
-            if (savedResume != null && ("PENDING".equals(savedResume.getParsingStatus()) || savedResume.getParsingStatus() == null)) {
-                savedResume.setParsingStatus("ERROR");
-                resumeRepository.save(savedResume);
+            if (savedResume != null) {
+                if ("PENDING".equals(savedResume.getParsingStatus())) {
+                    savedResume.setParsingStatus("FAILED");
+                    resumeRepository.save(savedResume);
+                }
+                // Even on failure, return the DTO so the frontend gets the ID
+                return convertToResponseDTO(savedResume);
+            } else {
+                // If resume was never saved, we can't return a DTO. We must throw.
+                throw new RuntimeException("Failed to save resume before parsing: " + e.getMessage(), e);
             }
-            throw new RuntimeException("Failed to upload and parse resume: " + e.getMessage(), e);
         }
     }
 

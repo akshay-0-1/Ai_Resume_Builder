@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.project.resumeTracker.helper.CustomLocalDateDeserializer;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -23,6 +25,7 @@ public class WorkExperience {
     private String companyName;
     private String location;
     private LocalDate startDate;
+    @JsonDeserialize(using = CustomLocalDateDeserializer.class)
     private LocalDate endDate;
     private boolean isCurrentJob;
     @Column(columnDefinition = "TEXT")

@@ -18,11 +18,11 @@ public class ScheduledCleanupService {
     private final ResumeRepository resumeRepository;
 
     /**
-     * This scheduled task runs every hour to clean up old resumes.
+     * This scheduled task runs to clean up old resumes.
+     * It runs 60 seconds after application startup and every hour thereafter.
      * It finds resumes older than 1 hour and performs a soft delete by setting their isActive flag to false.
-     * The cron expression "0 0 * * * *" means it runs at the beginning of every hour.
      */
-    @Scheduled(cron = "0 0 * * * *")
+    @Scheduled(initialDelay = 60000, fixedRate = 3600000) // 1-minute initial delay, then runs every 1 hour
     public void cleanupOldResumes() {
         LocalDateTime oneHourAgo = LocalDateTime.now().minusHours(1);
         log.info("Running scheduled cleanup for resumes older than: {}", oneHourAgo);

@@ -31,8 +31,13 @@ public class JobAnalysisServiceImpl implements JobAnalysisService {
     public JobAnalysisResponseDTO analyzeResumeAndJobDescription(UUID resumeId, String jobDescription, UUID userId) {
         log.info("Starting analysis for resume ID: {} for user ID: {}", resumeId, userId);
 
-        Resume resume = resumeRepository.findByIdAndUserId(resumeId, userId)
-                .orElseThrow(() -> new RuntimeException("Resume not found or access denied for the user."));
+        Resume resume = resumeRepository.findById(resumeId)
+                .orElseThrow(() -> new RuntimeException("Resume not found."));
+
+        // Verify that the resume belongs to the authenticated user
+        if (!resume.getUserId().equals(userId)) {
+            throw new SecurityException("Access denied. You do not own this resume.");
+        }
 
         String resumeText;
         try {
