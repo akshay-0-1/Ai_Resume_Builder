@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.resumeTracker.dto.JobAnalysisResponseDTO;
 import com.project.resumeTracker.dto.TargetedChangeDTO;
+import com.project.resumeTracker.entity.JobAnalysis;
 import com.project.resumeTracker.entity.Resume;
+import com.project.resumeTracker.repository.JobAnalysisRepository;
 import com.project.resumeTracker.repository.ResumeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +26,7 @@ public class JobAnalysisServiceImpl implements JobAnalysisService {
 
     private final DocumentParsingFacade documentParsingFacade;
     private final ResumeRepository resumeRepository;
+    private final JobAnalysisRepository jobAnalysisRepository;
     private final GeminiService geminiService;
     private final ObjectMapper objectMapper;
 
@@ -58,7 +61,12 @@ public class JobAnalysisServiceImpl implements JobAnalysisService {
             log.info("Received response from Gemini API.");
             log.debug("Gemini raw response: {}", fullResponseText);
 
-            return parseJsonResponse(fullResponseText);
+            JobAnalysisResponseDTO responseDto = parseJsonResponse(fullResponseText);
+
+            // Save the successful analysis to the history
+            saveAnalysisToHistory(userId, resume, jobDescription, responseDto);
+
+            return responseDto;
 
         } catch (Exception e) {
             log.error("Error during Gemini API call or JSON parsing: {}", e.getMessage(), e);
@@ -108,5 +116,23 @@ public class JobAnalysisServiceImpl implements JobAnalysisService {
         }
 
         return new JobAnalysisResponseDTO(score, targetedChanges, overallImprovements);
+    }
+
+    private void saveAnalysisToHistory(UUID userId, Resume resume, String jobDescription, JobAnalysisResponseDTO responseDto) {
+        try {
+            JobAnalysis analysis = JobAnalysis.builder()
+                    .userId(userId)
+                    .resume(resume)
+                    .jobDescription(jobDescription)
+                    .jobScore(responseDto.getJobScore())
+                    .targetedChanges(objectMapper.writeValueAsString(responseDto.getTargetedChanges()))
+                    .overallImprovements(objectMapper.writeValueAsString(responseDto.getOverallImprovements()))
+                    .build();
+
+            jobAnalysisRepository.save(analysis);
+            log.info("Successfully saved job analysis history for user ID: {}", userId);
+        } catch (Exception e) {
+            log.error("Could not save job analysis history for user ID: {}. Error: {}", userId, e.getMessage());
+        }
     }
 }

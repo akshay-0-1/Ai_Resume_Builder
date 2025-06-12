@@ -5,7 +5,10 @@ import com.project.resumeTracker.dto.JobAnalysisRequestDTO;
 import com.project.resumeTracker.dto.JobAnalysisResponseDTO;
 import com.project.resumeTracker.dto.ResumeResponseDTO;
 import com.project.resumeTracker.dto.ResumeInfoDTO;
+import com.project.resumeTracker.dto.JobAnalysisHistoryDTO;
+import com.project.resumeTracker.entity.JobAnalysis;
 import com.project.resumeTracker.entity.User;
+import com.project.resumeTracker.repository.JobAnalysisRepository;
 import com.project.resumeTracker.repository.UserRepository;
 import com.project.resumeTracker.service.JobAnalysisService;
 import com.project.resumeTracker.service.ResumeService;
@@ -31,6 +34,7 @@ public class ResumeController {
     private final ResumeService resumeService;
     private final UserRepository userRepository;
     private final JobAnalysisService jobAnalysisService;
+    private final JobAnalysisRepository jobAnalysisRepository;
 
     private UUID getUserUUID(Long userId) {
         // Create a deterministic UUID based on the user's ID
@@ -164,6 +168,54 @@ public class ResumeController {
             log.error("Error retrieving resume: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to retrieve resume", "Internal server error"));
+        }
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<ApiResponse<List<JobAnalysisHistoryDTO>>> getAnalysisHistory(Authentication authentication) {
+        try {
+            String username = authentication.getName();
+            User user = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            UUID userId = getUserUUID(user.getId());
+
+            List<JobAnalysisHistoryDTO> history = jobAnalysisRepository.findJobAnalysisHistoryByUserId(userId, PageRequest.of(0, 5));
+
+            return ResponseEntity.ok(ApiResponse.success("History fetched successfully", history));
+
+        } catch (Exception e) {
+            log.error("Error fetching analysis history: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to fetch history", "Internal server error"));
+        }
+    }
+
+    @GetMapping("/analysis/history")
+    public ResponseEntity<ApiResponse<List<JobAnalysisHistoryDTO>>> getAnalysisHistoryOld(
+            Authentication authentication) {
+
+        log.info("Attempting to retrieve analysis history.");
+        try {
+            String username = authentication.getName();
+            User user = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            UUID userId = getUserUUID(user.getId());
+            log.info("Fetching history for user ID: {}", userId);
+
+            List<JobAnalysisHistoryDTO> history = jobAnalysisRepository.findJobAnalysisHistoryByUserId(userId, PageRequest.of(0, 5));
+            log.info("Found {} history records for user ID: {}.", history.size(), userId);
+
+            if (!history.isEmpty()) {
+                log.debug("History data for user ID {}: {}", userId, history);
+            }
+
+            return ResponseEntity.ok(ApiResponse.success("Analysis history retrieved", history));
+
+        } catch (Exception e) {
+            log.error("Error retrieving analysis history: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to retrieve history", "Internal server error"));
         }
     }
 
