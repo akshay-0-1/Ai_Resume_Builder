@@ -105,14 +105,22 @@ public class ResumeService {
     }
 
     public ResumeResponseDTO getResumeById(UUID resumeId, UUID userId) {
-        Resume resume = resumeRepository.findByIdAndUserId(resumeId, userId)
-                .orElseThrow(() -> new RuntimeException("Resume not found or access denied."));
+        Resume resume = resumeRepository.findById(resumeId)
+                .orElseThrow(() -> new RuntimeException("Resume not found."));
+
+        if (!resume.getUserId().equals(userId)) {
+            throw new SecurityException("Access denied.");
+        }
         return convertToResponseDTO(resume);
     }
 
     public void deleteResume(UUID resumeId, UUID userId) {
-        Resume resume = resumeRepository.findByIdAndUserId(resumeId, userId)
-                .orElseThrow(() -> new RuntimeException("Resume not found or access denied."));
+        Resume resume = resumeRepository.findById(resumeId)
+                .orElseThrow(() -> new RuntimeException("Resume not found."));
+
+        if (!resume.getUserId().equals(userId)) {
+            throw new SecurityException("Access denied.");
+        }
 
         resume.setIsActive(false);
         resumeRepository.save(resume);
