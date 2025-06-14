@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
-import { AnalysisProvider } from './context/AnalysisContext';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -50,7 +49,6 @@ function App() {
 
   return (
     <AuthProvider>
-      <AnalysisProvider>
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <div className="App">
             <Routes>
@@ -143,7 +141,6 @@ function App() {
             />
           </div>
         </Router>
-      </AnalysisProvider>
     </AuthProvider>
   );
 }
