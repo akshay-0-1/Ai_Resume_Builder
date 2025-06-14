@@ -1,37 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Star, MessageSquare, ChevronLeft, ChevronRight } from 'lucide-react';
 import { feedbackService } from '../../api/feedbackService';
-import Card from '../common/Card';
+import { useAuth } from '../../context/AuthContext';
+import Spinner from '../common/Spinner';
 import Modal from '../common/Modal';
 import FeedbackForm from '../feedback/FeedbackForm';
+import Card from '../common/Card';
 
 const SuccessStories = () => {
   const [feedbacks, setFeedbacks] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
   const scrollContainerRef = useRef(null);
+  const { user } = useAuth();
 
-  useEffect(() => {
-    fetchFeedbacks();
-  }, []);
-
-  const fetchFeedbacks = async () => {
-    try {
-      const response = await feedbackService.getFeedback();
-      if (response.success) {
-        // Sort by creation date to show the latest feedback first
-        const sortedFeedbacks = response.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        setFeedbacks(sortedFeedbacks);
-      } else {
-        console.error('Error fetching feedback:', response.error);
-      }
-    } catch (error) {
-      console.error('Error fetching feedback:', error);
+  const fetchFeedback = async () => {
+    if (!hasMore || loading) return;
+    setLoading(true);
+    const response = await feedbackService.getFeedback(page, 5);
+    if (response.success) {
+      setFeedbacks(prev => [...prev, ...response.data.content]);
+      setHasMore(!response.data.last);
+      setPage(prev => prev + 1);
     }
+    setLoading(false);
   };
 
+  useEffect(() => {
+    fetchFeedback();
+  }, []);
+
   const handleFeedbackSubmitted = (newFeedback) => {
-    // Add the new feedback to the state. It's received from the server response,
-    // so it includes the ID and is the single source of truth.
     setFeedbacks(prevFeedbacks => [newFeedback, ...prevFeedbacks]);
     setIsModalOpen(false);
   };
@@ -88,13 +89,14 @@ const SuccessStories = () => {
               </div>
             ))}
           </div>
-          
-          <button onClick={() => scroll(-1)} className="absolute top-1/2 -translate-y-1/2 -left-4 w-12 h-12 bg-white/80 backdrop-blur-sm rounded-full shadow-md flex items-center justify-center hover:bg-white transition-colors z-10">
-            <ChevronLeft className="w-6 h-6 text-gray-700" />
-          </button>
-          <button onClick={() => scroll(1)} className="absolute top-1/2 -translate-y-1/2 -right-4 w-12 h-12 bg-white/80 backdrop-blur-sm rounded-full shadow-md flex items-center justify-center hover:bg-white transition-colors z-10">
-            <ChevronRight className="w-6 h-6 text-gray-700" />
-          </button>
+        </div>
+        <div className="text-center mt-8">
+          {loading && <Spinner />}
+          {hasMore && !loading && (
+            <button onClick={fetchFeedback} className="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition duration-300">
+              Load More
+            </button>
+          )}
         </div>
       </div>
 

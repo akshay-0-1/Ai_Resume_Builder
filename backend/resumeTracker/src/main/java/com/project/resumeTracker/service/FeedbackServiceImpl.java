@@ -8,7 +8,8 @@ import com.project.resumeTracker.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.stream.Collectors;
 
@@ -35,10 +36,8 @@ public class FeedbackServiceImpl implements FeedbackService {
     }
 
     @Override
-    public List<FeedbackDTO> getAllFeedback() {
-        return feedbackRepository.findAllWithUser().stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
+    public Page<FeedbackDTO> getAllFeedback(Pageable pageable) {
+        return feedbackRepository.findAllWithUser(pageable).map(this::toDTO);
     }
 
     private FeedbackDTO toDTO(Feedback feedback) {

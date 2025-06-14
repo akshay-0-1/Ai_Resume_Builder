@@ -9,9 +9,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 
 @RestController
@@ -42,8 +44,8 @@ public class FeedbackController {
     }
 
     @GetMapping
-    public ResponseEntity<List<FeedbackDTO>> getAllFeedback() {
-        List<FeedbackDTO> feedbackList = feedbackService.getAllFeedback();
-        return ResponseEntity.ok(feedbackList);
+    public ResponseEntity<Page<FeedbackDTO>> getAllFeedback(@PageableDefault(size = 5, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        Page<FeedbackDTO> feedbackPage = feedbackService.getAllFeedback(pageable);
+        return ResponseEntity.ok(feedbackPage);
     }
 }
