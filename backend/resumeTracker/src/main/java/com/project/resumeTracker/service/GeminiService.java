@@ -21,7 +21,7 @@ public class GeminiService {
     @Value("${google.gemini.api.key}")
     private String apiKey;
 
-    @Value("${google.gemini.model.name}")
+    @Value("${google.gemini.model.name:gemini-2.0-flash}")
     private String modelName;
 
     private final RestTemplate restTemplate = new RestTemplate();
