@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { resumeService } from '../api/resumeService';
 
 const AnalysisContext = createContext();
@@ -18,6 +18,31 @@ export const AnalysisProvider = ({ children }) => {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load resumes on mount
+  useEffect(() => {
+    const loadResumes = async () => {
+      try {
+        const result = await resumeService.getResumes();
+        if (result.success) {
+          setResumes(result.data);
+        }
+      } catch (error) {
+        console.error('Failed to load resumes:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Only load if we have an auth token
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      loadResumes();
+    } else {
+      setIsLoading(false);
+    }
+  }, []); // Empty dependency array means this runs once on mount
 
   const uploadResume = async (file) => {
     const formData = new FormData();
@@ -88,6 +113,7 @@ export const AnalysisProvider = ({ children }) => {
     analysisResult,
     isAnalyzing,
     isUploading,
+    isLoading,
     uploadResume,
     selectResume,
     analyzeResume,

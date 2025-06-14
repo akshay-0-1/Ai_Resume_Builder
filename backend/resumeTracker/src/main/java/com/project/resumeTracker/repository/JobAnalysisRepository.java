@@ -35,4 +35,12 @@ public interface JobAnalysisRepository extends JpaRepository<JobAnalysis, UUID> 
      * @return A list of old, active job analyses.
      */
     List<JobAnalysis> findByIsActiveTrueAndCreatedAtBefore(LocalDateTime timestamp);
+
+    /**
+     * Finds all active job analyses for a specific user, ordered by creation date ascending.
+     *
+     * @param userId The UUID of the user.
+     * @return A list of job analyses for the user, sorted from oldest to newest.
+     */
+    List<JobAnalysis> findByUserIdAndIsActiveTrueOrderByCreatedAtAsc(UUID userId);
 }

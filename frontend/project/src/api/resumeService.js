@@ -41,6 +41,8 @@ export const resumeService = {
       const response = await axiosInstance.post('/resumes/analyze', {
         resumeId,
         jobDescription,
+      }, {
+        timeout: 90000, // 90-second timeout
       });
       console.log('API Response in resumeService:', response.data);
       return {

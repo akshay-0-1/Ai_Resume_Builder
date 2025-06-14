@@ -131,8 +131,21 @@ public class JobAnalysisServiceImpl implements JobAnalysisService {
 
             jobAnalysisRepository.save(analysis);
             log.info("Successfully saved job analysis history for user ID: {}", userId);
+
+            enforceHistoryLimit(userId);
+
         } catch (Exception e) {
             log.error("Could not save job analysis history for user ID: {}. Error: {}", userId, e.getMessage());
+        }
+    }
+
+    private void enforceHistoryLimit(UUID userId) {
+        List<JobAnalysis> history = jobAnalysisRepository.findByUserIdAndIsActiveTrueOrderByCreatedAtAsc(userId);
+        if (history.size() > 5) {
+            JobAnalysis oldestEntry = history.get(0);
+            oldestEntry.setIsActive(false); // Soft delete
+            jobAnalysisRepository.save(oldestEntry);
+            log.info("Cleaned up oldest analysis history for user ID: {}. Kept 5 most recent.", userId);
         }
     }
 }

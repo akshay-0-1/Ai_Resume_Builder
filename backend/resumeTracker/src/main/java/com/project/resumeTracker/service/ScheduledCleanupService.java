@@ -45,28 +45,5 @@ public class ScheduledCleanupService {
         log.info("Successfully soft-deleted {} old resumes.", oldResumes.size());
     }
 
-    /**
-     * This scheduled task runs to clean up old job analysis history.
-     * It runs 120 seconds after application startup and every 2 hours thereafter.
-     * It finds analysis records older than 7 days and performs a soft delete by setting their isActive flag to false.
-     */
-    @Scheduled(initialDelay = 120000, fixedRate = 7200000) // 2-minute initial delay, then runs every 2 hours
-    public void cleanupOldAnalysisHistory() {
-        LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
-        log.info("Running scheduled cleanup for analysis history older than: {}", sevenDaysAgo);
 
-        List<JobAnalysis> oldAnalyses = jobAnalysisRepository.findByIsActiveTrueAndCreatedAtBefore(sevenDaysAgo);
-
-        if (oldAnalyses.isEmpty()) {
-            log.info("No old analysis history found to clean up.");
-            return;
-        }
-
-        for (JobAnalysis analysis : oldAnalyses) {
-            analysis.setIsActive(false);
-        }
-
-        jobAnalysisRepository.saveAll(oldAnalyses);
-        log.info("Successfully soft-deleted {} old analysis history records.", oldAnalyses.size());
-    }
 }
