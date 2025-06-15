@@ -1,0 +1,29 @@
+# IDE & OS Files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Dependency directories
+**/node_modules/
+
+# Build output from Maven
+**/target/
+
+# Build output from Node.js/Vite
+**/dist/
+**/build/
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
