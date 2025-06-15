@@ -63,7 +63,8 @@ export const AnalysisProvider = ({ children }) => {
     // Only load if we have an auth token
     const token = localStorage.getItem('authToken');
     if (token) {
-      loadResumes();
+      // loadResumes(); // Commented out to prevent loading previous resumes
+      setState(prev => ({ ...prev, isLoading: false, resumes: [] })); // Ensure list is empty and loading is false
     } else {
       setState(prev => ({ ...prev, isLoading: false }));
     }
