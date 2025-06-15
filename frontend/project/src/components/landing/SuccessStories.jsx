@@ -67,8 +67,8 @@ const SuccessStories = () => {
               </Card>
             </div>
 
-            {feedbacks.map((feedback) => (
-              <div key={feedback.id} className="flex-shrink-0 w-80">
+            {feedbacks.map((feedback, index) => (
+              <div key={`${feedback.id}-${index}`} className="flex-shrink-0 w-80">
                 <Card className="p-8 h-full flex flex-col bg-gray-50/50 border border-gray-200/80 shadow-sm hover:shadow-lg transition-shadow duration-300">
                   <MessageSquare className="w-8 h-8 text-primary-400 mb-4" />
                   <p className="text-gray-600 mb-6 flex-grow">
@@ -79,7 +79,7 @@ const SuccessStories = () => {
                     <div className="flex items-center">
                       {[...Array(5)].map((_, i) => (
                         <Star
-                          key={i}
+                          key={`${feedback.id}-${index}-star-${i}`}
                           className={`w-5 h-5 ${i < feedback.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
                         />
                       ))}

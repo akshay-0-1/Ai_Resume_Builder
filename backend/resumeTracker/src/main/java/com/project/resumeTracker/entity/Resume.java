@@ -47,6 +47,10 @@ public class Resume {
     @Column(name = "file_data")
     private byte[] fileData;
 
+    @Lob
+    @Column(name = "raw_text", columnDefinition = "TEXT")
+    private String rawText;
+
     @Column(name = "is_active")
     private Boolean isActive = true;
 

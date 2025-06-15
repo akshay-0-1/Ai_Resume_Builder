@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,6 +27,7 @@ public class ScheduledCleanupService {
      * It finds resumes older than 1 hour and performs a soft delete by setting their isActive flag to false.
      */
     @Scheduled(initialDelay = 60000, fixedRate = 3600000) // 1-minute initial delay, then runs every 1 hour
+    @Transactional
     public void cleanupOldResumes() {
         LocalDateTime oneHourAgo = LocalDateTime.now().minusHours(1);
         log.info("Running scheduled cleanup for resumes older than: {}", oneHourAgo);
@@ -44,6 +46,4 @@ public class ScheduledCleanupService {
         resumeRepository.saveAll(oldResumes);
         log.info("Successfully soft-deleted {} old resumes.", oldResumes.size());
     }
-
-
 }

@@ -17,6 +17,7 @@ public class ResumeResponseDTO {
     private String originalFilename;
     private Long fileSize;
     private String mimeType;
+    private String resumeContent;
 
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime uploadDate;

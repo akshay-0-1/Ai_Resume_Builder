@@ -4,6 +4,7 @@ import Navbar from '../components/layout/Navbar';
 import ResumeUploader from '../components/dashboard/ResumeUploader';
 import JobDescriptionInput from '../components/dashboard/JobDescriptionInput';
 import AnalysisDisplay from '../components/dashboard/AnalysisDisplay';
+import ResumeDisplay from '../components/dashboard/ResumeDisplay';
 import Button from '../components/common/Button';
 import { BarChart3 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -15,7 +16,8 @@ const DashboardPage = () => {
     setJobDescription,
     analyzeResume, 
     isAnalyzing, 
-    clearAnalysis 
+    clearAnalysis, 
+    resumeContent
   } = useAnalysis();
 
   const canAnalyze = selectedResume && jobDescription.trim().length >= 50;
@@ -49,7 +51,7 @@ const DashboardPage = () => {
           <div className="space-y-6">
             <ResumeUploader />
             <JobDescriptionInput value={jobDescription} onChange={setJobDescription} />
-            
+
             {/* Analyze Button */}
             <div className="flex flex-col sm:flex-row gap-4">
               <Button
@@ -62,7 +64,7 @@ const DashboardPage = () => {
                 <BarChart3 className="w-5 h-5 mr-2" />
                 Analyze Resume
               </Button>
-              
+
               <Button
                 onClick={clearAnalysis}
                 variant="secondary"
@@ -72,7 +74,7 @@ const DashboardPage = () => {
                 Clear
               </Button>
             </div>
-            
+
             {!canAnalyze && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <p className="text-sm text-amber-800">
@@ -85,6 +87,7 @@ const DashboardPage = () => {
 
           {/* Right Column - Output */}
           <div className="space-y-6">
+            <ResumeDisplay resume={selectedResume} />
             <AnalysisDisplay />
           </div>
         </div>

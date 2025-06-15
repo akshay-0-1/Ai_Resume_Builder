@@ -12,13 +12,34 @@ export const useAnalysis = () => {
 };
 
 export const AnalysisProvider = ({ children }) => {
-  const [resumes, setResumes] = useState([]);
-  const [selectedResume, setSelectedResume] = useState(null);
-  const [jobDescription, setJobDescription] = useState('');
-  const [analysisResult, setAnalysisResult] = useState(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const initialState = {
+    resumes: [],
+    selectedResume: null,
+    jobDescription: '',
+    analysisResult: null,
+    isAnalyzing: false,
+    isUploading: false,
+    resumeContent: '',
+    isLoading: true
+  };
+
+  const [state, setState] = useState(initialState);
+
+  // Destructure state and create setter functions
+  const {
+    resumes,
+    selectedResume,
+    jobDescription,
+    analysisResult,
+    isAnalyzing,
+    isUploading,
+    resumeContent,
+    isLoading
+  } = state;
+
+  const setJobDescription = (newDescription) => {
+    setState(prev => ({ ...prev, jobDescription: newDescription }));
+  };
 
   // Load resumes on mount
   useEffect(() => {
@@ -26,12 +47,16 @@ export const AnalysisProvider = ({ children }) => {
       try {
         const result = await resumeService.getResumes();
         if (result.success) {
-          setResumes(result.data);
+          const newResumes = Array.isArray(result.data) ? result.data : [];
+          setState(prev => ({
+            ...prev,
+            resumes: newResumes,
+            isLoading: false
+          }));
         }
       } catch (error) {
         console.error('Failed to load resumes:', error);
-      } finally {
-        setIsLoading(false);
+        setState(prev => ({ ...prev, isLoading: false }));
       }
     };
 
@@ -40,7 +65,7 @@ export const AnalysisProvider = ({ children }) => {
     if (token) {
       loadResumes();
     } else {
-      setIsLoading(false);
+      setState(prev => ({ ...prev, isLoading: false }));
     }
   }, []); // Empty dependency array means this runs once on mount
 
@@ -48,14 +73,19 @@ export const AnalysisProvider = ({ children }) => {
     const formData = new FormData();
     formData.append('file', file);
 
-    setIsUploading(true);
+    setState(prev => ({ ...prev, isUploading: true }));
     try {
       const result = await resumeService.uploadResume(formData);
       if (result.success && result.data.success) {
         const newResume = result.data.data;
-        setResumes((prev) => [...prev, newResume]);
-        setSelectedResume(newResume);
-        setAnalysisResult(null); // Clear old analysis on new upload
+        setState(prev => ({
+          ...prev,
+          resumes: Array.isArray(prev.resumes) ? [...prev.resumes, newResume] : [newResume],
+          selectedResume: newResume,
+          analysisResult: null,
+          resumeContent: newResume.resumeContent,
+          isUploading: false
+        }));
         return { success: true, data: newResume };
       } else {
         throw new Error(result.data.message || result.error || 'Upload failed');
@@ -63,14 +93,44 @@ export const AnalysisProvider = ({ children }) => {
     } catch (error) {
       console.error('Upload failed:', error);
       throw error;
-    } finally {
-      setIsUploading(false);
     }
   };
 
-  const selectResume = (resume) => {
-    setSelectedResume(resume);
-    setAnalysisResult(null); // Clear analysis when switching resumes
+  const selectResume = async (resume) => {
+    console.log('Attempting to select resume:', resume);
+    if (!resume || !resume.id) {
+      console.error('selectResume called with invalid resume object');
+      return;
+    }
+
+    if (selectedResume?.id === resume.id) return;
+
+    // Update selected resume and clear analysis
+    setState(prev => ({
+      ...prev,
+      selectedResume: resume,
+      analysisResult: null
+    }));
+
+    // If resume already has content, use it immediately
+    if (resume.resumeContent) {
+      setState(prev => ({ ...prev, resumeContent: resume.resumeContent }));
+    } else {
+      // Otherwise fetch it from the backend
+      try {
+        console.log(`Fetching full details for resume ID: ${resume.id}`);
+        const result = await resumeService.getResume(resume.id);
+        if (result.success && result.data.success) {
+          setState(prev => ({ ...prev, resumeContent: result.data.data.resumeContent }));
+        } else {
+          toast.error('Could not load resume content.');
+          console.error('Failed to load resume content:', result.data?.message || result.error);
+        }
+      } catch (error) {
+        toast.error('Failed to fetch resume details.');
+        console.error('Error fetching resume details:', error);
+      }
+    }
   };
 
   const analyzeResume = async () => {
@@ -78,15 +138,14 @@ export const AnalysisProvider = ({ children }) => {
       throw new Error('Please select a resume and provide a job description');
     }
 
-    setIsAnalyzing(true);
-    setAnalysisResult(null);
+    setState(prev => ({ ...prev, isAnalyzing: true, analysisResult: null }));
 
     try {
       const result = await resumeService.analyzeResume(selectedResume.id, jobDescription);
 
       if (result.success) {
         console.log('Analysis result in context:', result.data);
-        setAnalysisResult(result.data);
+        setState(prev => ({ ...prev, analysisResult: result.data }));
         return result.data;
       } else {
         throw new Error(result.error);
@@ -95,14 +154,17 @@ export const AnalysisProvider = ({ children }) => {
       console.error('Analysis failed:', error);
       throw new Error(error.message || 'Analysis failed. Please try again.');
     } finally {
-      setIsAnalyzing(false);
+      setState(prev => ({ ...prev, isAnalyzing: false }));
     }
   };
 
   const clearAnalysis = () => {
-    setAnalysisResult(null);
-    setJobDescription('');
-    setSelectedResume(null);
+    setState(prev => ({
+      ...prev,
+      analysisResult: null,
+      jobDescription: '',
+      selectedResume: null
+    }));
   };
 
   const value = {
@@ -114,6 +176,7 @@ export const AnalysisProvider = ({ children }) => {
     isAnalyzing,
     isUploading,
     isLoading,
+    resumeContent,
     uploadResume,
     selectResume,
     analyzeResume,

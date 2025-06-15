@@ -57,13 +57,13 @@ public class ResumeService {
             resume.setFileSize(file.getSize());
             resume.setMimeType(file.getContentType());
             resume.setFileData(file.getBytes());
-            resume.setParsingStatus("PENDING");
             resume.setIsActive(true);
 
             savedResume = resumeRepository.save(resume);
             log.info("Resume metadata saved: {}. Attempting to parse.", savedResume.getId());
 
             String rawText = documentParsingFacade.parseDocument(file);
+            savedResume.setRawText(rawText);
             savedResume = resumeDataService.parseAndEnrichResume(rawText, savedResume);
             log.info("Resume parsing completed for: {}. Status: {}", savedResume.getId(), savedResume.getParsingStatus());
 
@@ -93,15 +93,11 @@ public class ResumeService {
     }
 
     public List<ResumeInfoDTO> getUserResumes(UUID userId) {
-        List<Resume> resumes = resumeRepository.findByUserIdAndIsActiveTrueOrderByUploadDateDesc(userId);
-        return resumes.stream()
-                .map(this::convertToInfoDTO)
-                .collect(Collectors.toList());
+        return resumeRepository.findResumeInfoByUserId(userId);
     }
 
     public Page<ResumeInfoDTO> getUserResumes(UUID userId, Pageable pageable) {
-        Page<Resume> resumes = resumeRepository.findByUserIdAndIsActiveTrueOrderByUploadDateDesc(userId, pageable);
-        return resumes.map(this::convertToInfoDTO);
+        return resumeRepository.findResumeInfoByUserId(userId, pageable);
     }
 
     public ResumeResponseDTO getResumeById(UUID resumeId, UUID userId) {
@@ -112,6 +108,16 @@ public class ResumeService {
             throw new SecurityException("Access denied.");
         }
         return convertToResponseDTO(resume);
+    }
+
+    public Resume getResumeFileById(UUID resumeId, UUID userId) {
+        Resume resume = resumeRepository.findById(resumeId)
+                .orElseThrow(() -> new RuntimeException("Resume not found."));
+
+        if (!resume.getUserId().equals(userId)) {
+            throw new SecurityException("Access denied.");
+        }
+        return resume;
     }
 
     public void deleteResume(UUID resumeId, UUID userId) {
@@ -156,6 +162,7 @@ public class ResumeService {
         dto.setMimeType(resume.getMimeType());
         dto.setUploadDate(resume.getUploadDate());
         dto.setParsingStatus(resume.getParsingStatus());
+        dto.setResumeContent(resume.getRawText());
 
         if (resume.getPersonalDetails() != null) {
             dto.setPersonalDetails(mapPersonalDetailsToDTO(resume.getPersonalDetails()));
@@ -190,9 +197,5 @@ public class ResumeService {
     private SkillDTO mapSkillToDTO(Skill skill) {
         if (skill == null) return null;
         return new SkillDTO(skill.getSkillName(), skill.getProficiencyLevel());
-    }
-
-    private ResumeInfoDTO convertToInfoDTO(Resume resume) {
-        return new ResumeInfoDTO(resume.getId(), resume.getOriginalFilename());
     }
 }

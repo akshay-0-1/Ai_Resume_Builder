@@ -14,9 +14,12 @@ import com.project.resumeTracker.service.JobAnalysisService;
 import com.project.resumeTracker.service.ResumeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -149,6 +152,7 @@ public class ResumeController {
             @PathVariable UUID resumeId,
             Authentication authentication) {
 
+        log.info("Attempting to fetch resume with ID: {}", resumeId);
         try {
             String username = authentication.getName();
             User user = userRepository.findByUsername(username)
@@ -168,6 +172,35 @@ public class ResumeController {
             log.error("Error retrieving resume: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to retrieve resume", "Internal server error"));
+        }
+    }
+
+    @GetMapping("/{resumeId}/download")
+    public ResponseEntity<ByteArrayResource> downloadResume(
+            @PathVariable UUID resumeId,
+            Authentication authentication) {
+        try {
+            String username = authentication.getName();
+            User user = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            UUID userId = getUserUUID(user.getId());
+
+            com.project.resumeTracker.entity.Resume resume = resumeService.getResumeFileById(resumeId, userId);
+
+            ByteArrayResource resource = new ByteArrayResource(resume.getFileData());
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=\"" + resume.getOriginalFilename() + "\"")
+                    .contentType(MediaType.parseMediaType(resume.getMimeType()))
+                    .contentLength(resume.getFileData().length)
+                    .body(resource);
+
+        } catch (RuntimeException e) {
+            log.error("Error downloading resume file: {}", e.getMessage());
+            if (e instanceof SecurityException) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
     }
 

@@ -71,5 +71,20 @@ export const resumeService = {
         error: error.response?.data?.message || 'Failed to fetch analysis history'
       };
     }
-  }
+  },
+
+  getResume: async (resumeId) => {
+    try {
+      const response = await axiosInstance.get(`/resumes/${resumeId}`);
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to fetch resume details',
+      };
+    }
+  },
 };
