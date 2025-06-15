@@ -1,74 +1,118 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { renderAsync } from 'docx-preview';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
 
 import Card from '../common/Card';
 import Button from '../common/Button';
-import { Download, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Download, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Loader2, Edit, Save, XCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import axiosInstance from '../../api/axiosConfig';
+import { resumeService } from '../../api/resumeService';
 
-// PDF.js worker setup is crucial for react-pdf
+// PDF.js worker setup
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 const ResumeDisplay = ({ resume }) => {
   const [fileUrl, setFileUrl] = useState(null);
   const [fileType, setFileType] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editorContent, setEditorContent] = useState('');
   const docxContainerRef = useRef(null);
+  const quillRef = useRef(null);
 
   // PDF State
   const [numPages, setNumPages] = useState(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [scale, setScale] = useState(1.2);
 
-  useEffect(() => {
-    // Function to fetch the file and prepare it for display
-    const fetchAndSetFile = async () => {
-      if (resume && resume.id) {
-        setIsLoading(true);
-        setFileUrl(null);
-        setFileType('');
-        setPageNumber(1);
-        setNumPages(null);
+  const fetchAndSetFile = useCallback(async () => {
+    if (resume && resume.id) {
+      setIsLoading(true);
+      setFileUrl(null);
+      setFileType('');
+      setPageNumber(1);
+      setNumPages(null);
 
-        try {
-          // Fetch the file as a blob from our new backend endpoint
-          const response = await axiosInstance.get(`/resumes/${resume.id}/download`, {
-            responseType: 'blob',
-          });
+      try {
+        const response = await axiosInstance.get(`/resumes/${resume.id}/download`, {
+          responseType: 'blob',
+        });
 
-          const blob = new Blob([response.data], { type: resume.mimeType });
-          const url = URL.createObjectURL(blob);
+        const blob = new Blob([response.data], { type: resume.mimeType });
+        const url = URL.createObjectURL(blob);
 
-          setFileUrl(url);
-          setFileType(resume.mimeType);
+        setFileUrl(url);
+        setFileType(resume.mimeType);
 
-          // If it's a word document, render it into the container
-          if (resume.mimeType.includes('word') && docxContainerRef.current) {
-            docxContainerRef.current.innerHTML = ''; // Clear previous preview
-            await renderAsync(blob, docxContainerRef.current);
-          }
-        } catch (error) {
-          console.error('Error fetching resume file:', error);
-          toast.error('Could not load resume preview.');
-        } finally {
-          setIsLoading(false);
+        if (resume.mimeType.includes('word') && docxContainerRef.current) {
+          docxContainerRef.current.innerHTML = '';
+          await renderAsync(blob, docxContainerRef.current);
         }
+      } catch (error) {
+        console.error('Error fetching resume file:', error);
+        toast.error('Could not load resume preview.');
+      } finally {
+        setIsLoading(false);
       }
-    };
+    }
+  }, [resume]);
 
-    fetchAndSetFile();
+  useEffect(() => {
+    if (!isEditing) {
+      fetchAndSetFile();
+    }
 
-    // Cleanup the object URL to avoid memory leaks
     return () => {
       if (fileUrl) {
         URL.revokeObjectURL(fileUrl);
       }
     };
-  }, [resume]);
+  }, [resume, isEditing, fetchAndSetFile]);
+
+  const handleEditClick = () => {
+    // Convert plain text to simple HTML for the editor
+    const html = resume.resumeContent.split('\n').map(p => `<p>${p}</p>`).join('');
+    setEditorContent(html);
+    setIsEditing(true);
+  };
+
+  const handleCancelClick = () => {
+    setIsEditing(false);
+    setEditorContent('');
+  };
+
+  const handleSaveClick = async () => {
+    if (!editorContent.trim()) {
+      toast.error('Resume content cannot be empty.');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      // Wrap the editor content to ensure it's a well-formed HTML document
+      const wellFormedHtmlContent = `<html><body>${editorContent}</body></html>`;
+      const result = await resumeService.updateResumeContent(resume.id, wellFormedHtmlContent);
+      if (result.success) {
+        toast.success('Resume updated successfully!');
+        setIsEditing(false);
+        // The useEffect will trigger a refresh because isEditing changed
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('--- Save Operation Failed: Full Error Object ---');
+      console.error(error);
+      console.error('---------------------------------------------');
+      toast.error(`Save failed: ${error.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleDownload = () => {
     if (!resume || !fileUrl) return;
@@ -103,7 +147,21 @@ const ResumeDisplay = ({ resume }) => {
       );
     }
 
-    if (!fileUrl) return null; // Don't render anything if the URL isn't ready
+    if (isEditing) {
+      return (
+        <div className="bg-white h-full">
+          <ReactQuill
+            ref={quillRef}
+            theme="snow"
+            value={editorContent}
+            onChange={setEditorContent}
+            className="h-[calc(100%-42px)]"
+          />
+        </div>
+      );
+    }
+
+    if (!fileUrl) return null;
 
     if (fileType === 'application/pdf') {
       return (
@@ -126,7 +184,7 @@ const ResumeDisplay = ({ resume }) => {
   };
 
   const renderPdfControls = () => {
-    if (fileType !== 'application/pdf' || !numPages) return null;
+    if (isEditing || fileType !== 'application/pdf' || !numPages) return null;
 
     return (
       <div className="flex items-center justify-center space-x-4 p-2 bg-gray-100 rounded-md mb-2">
@@ -151,6 +209,36 @@ const ResumeDisplay = ({ resume }) => {
     );
   };
 
+  const renderHeaderButtons = () => {
+    if (isEditing) {
+      return (
+        <div className="flex items-center space-x-2">
+          <Button onClick={handleCancelClick} variant="secondary" size="md">
+            <XCircle className="w-4 h-4 mr-2" />
+            Cancel
+          </Button>
+          <Button onClick={handleSaveClick} isLoading={isSaving} size="md">
+            <Save className="w-4 h-4 mr-2" />
+            Save
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center space-x-2">
+        <Button onClick={handleEditClick} disabled={!resume || isLoading} variant="outline" size="md">
+          <Edit className="w-4 h-4 mr-2" />
+          Edit
+        </Button>
+        <Button onClick={handleDownload} disabled={!resume || isLoading} size="md">
+          <Download className="w-4 h-4 mr-2" />
+          Download
+        </Button>
+      </div>
+    );
+  };
+
   return (
     <Card>
       <div className="p-6">
@@ -158,15 +246,12 @@ const ResumeDisplay = ({ resume }) => {
           <h3 className="text-lg font-semibold text-gray-900 truncate pr-4">
             {resume ? resume.originalFilename : 'Your Resume'}
           </h3>
-          <Button onClick={handleDownload} disabled={!resume || isLoading} size="md">
-            <Download className="w-4 h-4 mr-2" />
-            Download
-          </Button>
+          {renderHeaderButtons()}
         </div>
 
         {renderPdfControls()}
 
-        <div className="h-[70vh] overflow-auto p-2 border rounded-md bg-gray-100 flex justify-center">
+        <div className={`h-[70vh] overflow-auto p-2 border rounded-md ${isEditing ? 'bg-white' : 'bg-gray-100'} flex justify-center`}>
           {renderContent()}
         </div>
       </div>

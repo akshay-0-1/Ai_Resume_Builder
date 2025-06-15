@@ -14,16 +14,27 @@ import com.project.resumeTracker.entity.WorkExperience;
 import com.project.resumeTracker.repository.ResumeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Document.OutputSettings;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
+import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
+import org.docx4j.convert.in.xhtml.XHTMLImporterImpl;
+import org.docx4j.openpackaging.packages.WordprocessingMLPackage;
+import org.docx4j.openpackaging.parts.WordprocessingML.MainDocumentPart;
 
 @Service
 @RequiredArgsConstructor
@@ -131,6 +142,58 @@ public class ResumeService {
         resume.setIsActive(false);
         resumeRepository.save(resume);
         log.info("Resume deleted: {}", resumeId);
+    }
+
+    @Transactional
+    public ResumeResponseDTO updateResumeContent(UUID resumeId, UUID userId, String htmlContent) throws Exception {
+        Resume resume = resumeRepository.findById(resumeId)
+                .orElseThrow(() -> new RuntimeException("Resume not found."));
+
+        if (!resume.getUserId().equals(userId)) {
+            throw new SecurityException("Access denied.");
+        }
+
+        // Clean and parse the HTML to ensure it's well-formed
+        Document jsoupDoc = Jsoup.parse(htmlContent);
+        jsoupDoc.outputSettings().syntax(OutputSettings.Syntax.xml);
+        String cleanHtml = jsoupDoc.html();
+
+        byte[] updatedFileData;
+        String mimeType = resume.getMimeType();
+
+        if ("application/pdf".equals(mimeType)) {
+            try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+                PdfRendererBuilder builder = new PdfRendererBuilder();
+                builder.useFastMode();
+                builder.withHtmlContent(cleanHtml, null);
+                builder.toStream(os);
+                builder.run();
+                updatedFileData = os.toByteArray();
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to generate PDF from HTML", e);
+            }
+        } else if ("application/vnd.openxmlformats-officedocument.wordprocessingml.document".equals(mimeType)) {
+            try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+                WordprocessingMLPackage wordMLPackage = WordprocessingMLPackage.createPackage();
+                MainDocumentPart mainDocumentPart = wordMLPackage.getMainDocumentPart();
+                XHTMLImporterImpl xhtmlImporter = new XHTMLImporterImpl(wordMLPackage);
+                mainDocumentPart.getContent().addAll(xhtmlImporter.convert(cleanHtml, null));
+                wordMLPackage.save(os);
+                updatedFileData = os.toByteArray();
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to generate DOCX from HTML", e);
+            }
+        } else {
+            throw new IllegalArgumentException("Unsupported file type for editing: " + mimeType);
+        }
+
+        resume.setFileData(updatedFileData);
+        // Optionally, re-parse the text content if needed elsewhere
+        // resume.setResumeContent(parseTextFromHtml(htmlContent));
+        resume.setUploadDate(LocalDateTime.now()); // Update timestamp
+
+        Resume updatedResume = resumeRepository.save(resume);
+        return convertToResponseDTO(updatedResume);
     }
 
     private void validateFile(MultipartFile file) {

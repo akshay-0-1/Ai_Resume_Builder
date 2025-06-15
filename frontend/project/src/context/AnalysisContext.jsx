@@ -76,23 +76,24 @@ export const AnalysisProvider = ({ children }) => {
     setState(prev => ({ ...prev, isUploading: true }));
     try {
       const result = await resumeService.uploadResume(formData);
-      if (result.success && result.data.success) {
-        const newResume = result.data.data;
+      if (result.success) {
+        const newResume = result.data;
         setState(prev => ({
           ...prev,
           resumes: Array.isArray(prev.resumes) ? [...prev.resumes, newResume] : [newResume],
           selectedResume: newResume,
           analysisResult: null,
-          resumeContent: newResume.resumeContent,
-          isUploading: false
+          resumeContent: newResume.rawText || '',
         }));
         return { success: true, data: newResume };
       } else {
-        throw new Error(result.data.message || result.error || 'Upload failed');
+        throw new Error(result.error || 'Upload failed');
       }
     } catch (error) {
       console.error('Upload failed:', error);
-      throw error;
+      throw error; // Re-throw for the component to handle
+    } finally {
+      setState(prev => ({ ...prev, isUploading: false }));
     }
   };
 

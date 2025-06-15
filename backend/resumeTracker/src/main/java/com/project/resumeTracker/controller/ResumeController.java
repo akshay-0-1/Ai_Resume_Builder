@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -172,6 +173,38 @@ public class ResumeController {
             log.error("Error retrieving resume: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to retrieve resume", "Internal server error"));
+        }
+    }
+
+    @PutMapping("/{resumeId}/content")
+    public ResponseEntity<ApiResponse<ResumeResponseDTO>> updateResumeContent(
+            @PathVariable UUID resumeId,
+            @RequestBody Map<String, String> payload,
+            Authentication authentication) {
+        try {
+            String username = authentication.getName();
+            User user = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            UUID userId = getUserUUID(user.getId());
+
+            String htmlContent = payload.get("htmlContent");
+            if (htmlContent == null || htmlContent.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("Content cannot be empty", null));
+            }
+
+            ResumeResponseDTO updatedDto = resumeService.updateResumeContent(resumeId, userId, htmlContent);
+
+            return ResponseEntity.ok(ApiResponse.success("Resume updated successfully", updatedDto));
+
+        } catch (SecurityException e) {
+            log.warn("Access denied while updating resume content: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error("Access denied", null));
+        } catch (RuntimeException e) {
+            log.error("Error updating resume content: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage(), null));
+        } catch (Exception e) {
+            log.error("Internal server error while updating resume content: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("Failed to update resume", "Internal server error"));
         }
     }
 

@@ -6,8 +6,9 @@ import Card from '../common/Card';
 import toast from 'react-hot-toast';
 
 const ResumeUploader = () => {
-  const { resumes, selectedResume, selectResume, uploadResume, isUploading } = useAnalysis();
+  const { resumes, selectedResume, selectResume, uploadResume } = useAnalysis();
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleFileUpload = useCallback(async (files) => {
     const file = files[0];
@@ -26,11 +27,14 @@ const ResumeUploader = () => {
       return;
     }
 
+    setIsUploading(true);
     try {
       await uploadResume(file);
       toast.success('Resume uploaded successfully!');
     } catch (error) {
       toast.error(error.message || 'Failed to upload resume.');
+    } finally {
+      setIsUploading(false);
     }
   }, [uploadResume]);
 
@@ -76,12 +80,12 @@ const ResumeUploader = () => {
       {/* Upload Area */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Resume</h3>
-        
+
         <div
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors relative ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'} ${isUploading ? 'cursor-not-allowed' : ''}`}
+          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors relative ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'} ${isUploading ? 'cursor-not-allowed opacity-50' : ''}`}
         >
           {isUploading && (
             <div className="absolute inset-0 bg-white bg-opacity-75 flex flex-col items-center justify-center z-10">
