@@ -16,19 +16,19 @@ import java.util.UUID;
 @Repository
 public interface ResumeRepository extends JpaRepository<Resume, UUID> {
 
-    List<Resume> findByUserIdAndIsActiveTrueOrderByUploadDateDesc(UUID userId);
+    List<Resume> findByUserIdAndIsActiveTrueOrderByUploadDateDesc(Long userId);
 
-    Page<Resume> findByUserIdAndIsActiveTrueOrderByUploadDateDesc(UUID userId, Pageable pageable);
-
-    @Query("SELECT new com.project.resumeTracker.dto.ResumeInfoDTO(r.id, r.originalFilename, r.fileSize, r.uploadDate, r.mimeType) FROM Resume r WHERE r.userId = :userId AND r.isActive = true ORDER BY r.uploadDate DESC")
-    List<ResumeInfoDTO> findResumeInfoByUserId(UUID userId);
+    Page<Resume> findByUserIdAndIsActiveTrueOrderByUploadDateDesc(Long userId, Pageable pageable);
 
     @Query("SELECT new com.project.resumeTracker.dto.ResumeInfoDTO(r.id, r.originalFilename, r.fileSize, r.uploadDate, r.mimeType) FROM Resume r WHERE r.userId = :userId AND r.isActive = true ORDER BY r.uploadDate DESC")
-    Page<ResumeInfoDTO> findResumeInfoByUserId(UUID userId, Pageable pageable);
+    List<ResumeInfoDTO> findResumeInfoByUserId(Long userId);
 
-    Optional<Resume> findByIdAndUserId(UUID id, UUID userId);
+    @Query("SELECT new com.project.resumeTracker.dto.ResumeInfoDTO(r.id, r.originalFilename, r.fileSize, r.uploadDate, r.mimeType) FROM Resume r WHERE r.userId = :userId AND r.isActive = true ORDER BY r.uploadDate DESC")
+    Page<ResumeInfoDTO> findResumeInfoByUserId(Long userId, Pageable pageable);
 
-    boolean existsByIdAndUserId(UUID id, UUID userId);
+    Optional<Resume> findByIdAndUserId(UUID id, Long userId);
+
+    boolean existsByIdAndUserId(UUID id, Long userId);
 
     List<Resume> findAllByIsActiveTrueAndUploadDateBefore(LocalDateTime timestamp);
 

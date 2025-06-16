@@ -6,5 +6,5 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.UUID;
 
 public interface JobAnalysisService {
-    JobAnalysisResponseDTO analyzeResumeAndJobDescription(UUID resumeId, String jobDescription, UUID userId);
+    JobAnalysisResponseDTO analyzeResumeAndJobDescription(UUID resumeId, String jobDescription, Long userId);
 }

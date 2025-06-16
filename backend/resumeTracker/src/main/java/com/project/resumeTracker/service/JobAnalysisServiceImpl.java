@@ -31,7 +31,7 @@ public class JobAnalysisServiceImpl implements JobAnalysisService {
     private final ObjectMapper objectMapper;
 
     @Override
-    public JobAnalysisResponseDTO analyzeResumeAndJobDescription(UUID resumeId, String jobDescription, UUID userId) {
+    public JobAnalysisResponseDTO analyzeResumeAndJobDescription(UUID resumeId, String jobDescription, Long userId) {
         log.info("Starting analysis for resume ID: {} for user ID: {}", resumeId, userId);
 
         Resume resume = resumeRepository.findById(resumeId)
@@ -118,7 +118,7 @@ public class JobAnalysisServiceImpl implements JobAnalysisService {
         return new JobAnalysisResponseDTO(score, targetedChanges, overallImprovements);
     }
 
-    private void saveAnalysisToHistory(UUID userId, Resume resume, String jobDescription, JobAnalysisResponseDTO responseDto) {
+    private void saveAnalysisToHistory(Long userId, Resume resume, String jobDescription, JobAnalysisResponseDTO responseDto) {
         try {
             JobAnalysis analysis = JobAnalysis.builder()
                     .userId(userId)
@@ -139,7 +139,7 @@ public class JobAnalysisServiceImpl implements JobAnalysisService {
         }
     }
 
-    private void enforceHistoryLimit(UUID userId) {
+    private void enforceHistoryLimit(Long userId) {
         List<JobAnalysis> history = jobAnalysisRepository.findByUserIdAndIsActiveTrueOrderByCreatedAtAsc(userId);
         if (history.size() > 5) {
             JobAnalysis oldestEntry = history.get(0);

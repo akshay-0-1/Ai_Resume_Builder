@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Check } from 'lucide-react';
 import Card from '../common/Card';
 import Button from '../common/Button';
-import { plans } from './data';
+import { plans } from './data.jsx';
 
 const PricingCards = () => {
   const { isAuthenticated } = useAuth();

@@ -1,6 +1,6 @@
 import React from 'react';
 import Card from '../common/Card';
-import { faqs } from './data';
+import { faqs } from './data.jsx';
 
 const Faq = () => (
   <section className="py-20">

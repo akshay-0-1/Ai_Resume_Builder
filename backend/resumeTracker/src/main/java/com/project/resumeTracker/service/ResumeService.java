@@ -63,7 +63,7 @@ public class ResumeService {
 
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-    public ResumeResponseDTO uploadResume(MultipartFile file, UUID userId) throws IOException {
+    public ResumeResponseDTO uploadResume(MultipartFile file, Long userId) throws IOException {
         validateFile(file);
 
         Resume savedResume = null;
@@ -113,15 +113,15 @@ public class ResumeService {
         }
     }
 
-    public List<ResumeInfoDTO> getUserResumes(UUID userId) {
+    public List<ResumeInfoDTO> getUserResumes(Long userId) {
         return resumeRepository.findResumeInfoByUserId(userId);
     }
 
-    public Page<ResumeInfoDTO> getUserResumes(UUID userId, Pageable pageable) {
+    public Page<ResumeInfoDTO> getUserResumes(Long userId, Pageable pageable) {
         return resumeRepository.findResumeInfoByUserId(userId, pageable);
     }
 
-    public ResumeResponseDTO getResumeById(UUID resumeId, UUID userId) {
+    public ResumeResponseDTO getResumeById(UUID resumeId, Long userId) {
         Resume resume = resumeRepository.findById(resumeId)
                 .orElseThrow(() -> new RuntimeException("Resume not found."));
 
@@ -131,7 +131,7 @@ public class ResumeService {
         return convertToResponseDTO(resume);
     }
 
-    public Resume getResumeFileById(UUID resumeId, UUID userId) {
+    public Resume getResumeFileById(UUID resumeId, Long userId) {
         Resume resume = resumeRepository.findById(resumeId)
                 .orElseThrow(() -> new RuntimeException("Resume not found."));
 
@@ -163,7 +163,7 @@ public class ResumeService {
         return resume;
     }
 
-    public void deleteResume(UUID resumeId, UUID userId) {
+    public void deleteResume(UUID resumeId, Long userId) {
         Resume resume = resumeRepository.findById(resumeId)
                 .orElseThrow(() -> new RuntimeException("Resume not found."));
 
@@ -177,7 +177,7 @@ public class ResumeService {
     }
 
     @Transactional
-    public ResumeResponseDTO updateResumeContent(UUID resumeId, UUID userId, String htmlContent) throws Exception {
+    public ResumeResponseDTO updateResumeContent(UUID resumeId, Long userId, String htmlContent) throws Exception {
         Resume resume = resumeRepository.findById(resumeId)
                 .orElseThrow(() -> new RuntimeException("Resume not found."));
 
@@ -340,6 +340,7 @@ public class ResumeService {
         dto.setUploadDate(resume.getUploadDate());
         dto.setParsingStatus(resume.getParsingStatus());
         dto.setResumeContent(resume.getRawText());
+        dto.setHtmlContent(resume.getHtmlContent());
 
         if (resume.getPersonalDetails() != null) {
             dto.setPersonalDetails(mapPersonalDetailsToDTO(resume.getPersonalDetails()));
