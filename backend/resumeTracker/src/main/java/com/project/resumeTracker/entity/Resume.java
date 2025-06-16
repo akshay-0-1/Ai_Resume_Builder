@@ -48,8 +48,12 @@ public class Resume {
     private byte[] fileData;
 
     @Lob
-    @Column(name = "raw_text", columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String rawText;
+
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String htmlContent;
 
     @Column(name = "is_active")
     private Boolean isActive = true;

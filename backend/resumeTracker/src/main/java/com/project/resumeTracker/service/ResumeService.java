@@ -14,9 +14,11 @@ import com.project.resumeTracker.entity.WorkExperience;
 import com.project.resumeTracker.repository.ResumeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.Hibernate;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Document.OutputSettings;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,8 +26,16 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -128,6 +138,28 @@ public class ResumeService {
         if (!resume.getUserId().equals(userId)) {
             throw new SecurityException("Access denied.");
         }
+        Hibernate.initialize(resume.getWorkExperiences());
+        Hibernate.initialize(resume.getEducations());
+        Hibernate.initialize(resume.getSkills());
+
+        String html;
+        // Prioritize the user's saved HTML content if it exists.
+        if (resume.getHtmlContent() != null && !resume.getHtmlContent().trim().isEmpty()) {
+            html = resume.getHtmlContent();
+        } else {
+            // Fallback to building from structured data if no edits have been saved.
+            html = buildResumeHtmlFromData(resume);
+        }
+
+        try {
+            byte[] pdfData = generatePdfFromHtml(html);
+            resume.setFileData(pdfData);
+            resume.setMimeType("application/pdf");
+        } catch (IOException e) {
+            log.error("Failed to generate PDF for resumeId: {}", resumeId, e);
+            throw new RuntimeException("Failed to generate PDF file.", e);
+        }
+
         return resume;
     }
 
@@ -153,47 +185,129 @@ public class ResumeService {
             throw new SecurityException("Access denied.");
         }
 
-        // Clean and parse the HTML to ensure it's well-formed
+        // Parse the incoming HTML to extract plain text for keyword searching, etc.
         Document jsoupDoc = Jsoup.parse(htmlContent);
-        jsoupDoc.outputSettings().syntax(OutputSettings.Syntax.xml);
-        String cleanHtml = jsoupDoc.html();
+        String updatedRawText = jsoupDoc.text();
 
-        byte[] updatedFileData;
-        String mimeType = resume.getMimeType();
+        // Save the raw text and the full HTML content from the editor.
+        resume.setRawText(updatedRawText);
+        resume.setHtmlContent(htmlContent);
 
-        if ("application/pdf".equals(mimeType)) {
-            try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
-                PdfRendererBuilder builder = new PdfRendererBuilder();
-                builder.useFastMode();
-                builder.withHtmlContent(cleanHtml, null);
-                builder.toStream(os);
-                builder.run();
-                updatedFileData = os.toByteArray();
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to generate PDF from HTML", e);
-            }
-        } else if ("application/vnd.openxmlformats-officedocument.wordprocessingml.document".equals(mimeType)) {
-            try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
-                WordprocessingMLPackage wordMLPackage = WordprocessingMLPackage.createPackage();
-                MainDocumentPart mainDocumentPart = wordMLPackage.getMainDocumentPart();
-                XHTMLImporterImpl xhtmlImporter = new XHTMLImporterImpl(wordMLPackage);
-                mainDocumentPart.getContent().addAll(xhtmlImporter.convert(cleanHtml, null));
-                wordMLPackage.save(os);
-                updatedFileData = os.toByteArray();
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to generate DOCX from HTML", e);
-            }
-        } else {
-            throw new IllegalArgumentException("Unsupported file type for editing: " + mimeType);
+        // Save the updated resume. This is now a fast operation.
+        resumeRepository.save(resume);
+
+        // Return a lightweight response.
+        return new ResumeResponseDTO(resumeId, resume.getOriginalFilename());
+    }
+
+    private String buildResumeHtmlFromData(Resume resume) {
+        StringBuilder sb = new StringBuilder();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM yyyy");
+
+        sb.append("<div class='resume-container'>");
+
+        // Header
+        PersonalDetails details = resume.getPersonalDetails();
+        if (details != null) {
+            sb.append("<div class='header'>");
+            String name = details.getName() != null ? details.getName().trim() : "";
+            sb.append("<h1>").append(escapeHtml(name)).append("</h1>");
+            sb.append("<div class='contact-info'>");
+
+            String email = details.getEmail() != null ? details.getEmail().trim() : "";
+            if (!email.isEmpty()) sb.append(escapeHtml(email));
+
+            String phone = details.getPhone() != null ? details.getPhone().trim() : "";
+            if (!phone.isEmpty()) sb.append("<span> | </span>").append(escapeHtml(phone));
+
+            String linkedin = details.getLinkedinUrl() != null ? details.getLinkedinUrl().trim() : "";
+            if (!linkedin.isEmpty()) sb.append("<span> | </span><a href='").append(escapeHtml(linkedin)).append("'>LinkedIn</a>");
+
+            String github = details.getGithubUrl() != null ? details.getGithubUrl().trim() : "";
+            if (!github.isEmpty()) sb.append("<span> | </span><a href='").append(escapeHtml(github)).append("'>GitHub</a>");
+
+            sb.append("</div></div>");
         }
 
-        resume.setFileData(updatedFileData);
-        // Optionally, re-parse the text content if needed elsewhere
-        // resume.setResumeContent(parseTextFromHtml(htmlContent));
-        resume.setUploadDate(LocalDateTime.now()); // Update timestamp
+        // Work Experience
+        if (resume.getWorkExperiences() != null && !resume.getWorkExperiences().isEmpty()) {
+            sb.append("<div class='section'><h2 class='section-title'>Experience</h2>");
+            resume.getWorkExperiences().stream()
+                  .sorted(Comparator.comparing(WorkExperience::getStartDate, Comparator.nullsLast(Comparator.reverseOrder())))
+                  .forEach(exp -> {
+                      sb.append("<div class='entry'>");
 
-        Resume updatedResume = resumeRepository.save(resume);
-        return convertToResponseDTO(updatedResume);
+                      String startDateStr = exp.getStartDate() != null ? exp.getStartDate().format(formatter) : "";
+                      String endDateStr = exp.getEndDate() != null ? exp.getEndDate().format(formatter) : "Present";
+                      sb.append("<span class='date'>").append(startDateStr).append(" - ").append(endDateStr).append("</span>");
+
+                      String jobTitle = exp.getJobTitle() != null ? exp.getJobTitle().trim() : "";
+                      sb.append("<div class='title'>").append(escapeHtml(jobTitle)).append("</div>");
+
+                      String companyName = exp.getCompanyName() != null ? exp.getCompanyName().trim() : "";
+                      sb.append("<div class='company'>").append(escapeHtml(companyName)).append("</div>");
+
+                      String description = exp.getDescription();
+                      if (description != null && !description.trim().isEmpty()) {
+                          sb.append("<div class='description'><ul>");
+                          for (String line : description.split("\\n")) {
+                              if (!line.trim().isEmpty()) {
+                                  sb.append("<li>").append(escapeHtml(line.trim())).append("</li>");
+                              }
+                          }
+                          sb.append("</ul></div>");
+                      }
+                      sb.append("</div>");
+                  });
+            sb.append("</div>");
+        }
+
+        // Education
+        if (resume.getEducations() != null && !resume.getEducations().isEmpty()) {
+            sb.append("<div class='section'><h2 class='section-title'>Education</h2>");
+            resume.getEducations().stream()
+                .sorted(Comparator.comparing(Education::getEndDate, Comparator.nullsLast(Comparator.reverseOrder())))
+                .forEach(edu -> {
+                    sb.append("<div class='entry'>");
+                    String gradDateStr = edu.getEndDate() != null ? edu.getEndDate().format(formatter) : "";
+                    sb.append("<span class='date'>").append(gradDateStr).append("</span>");
+
+                    String degree = edu.getDegree() != null ? edu.getDegree().trim() : "";
+                    sb.append("<div class='title'>").append(escapeHtml(degree)).append("</div>");
+
+                    String institutionName = edu.getInstitutionName() != null ? edu.getInstitutionName().trim() : "";
+                    sb.append("<div class='institution'>").append(escapeHtml(institutionName)).append("</div>");
+                    sb.append("</div>");
+                });
+            sb.append("</div>");
+        }
+
+        // Skills
+        if (resume.getSkills() != null && !resume.getSkills().isEmpty()) {
+            sb.append("<div class='section'><h2 class='section-title'>Skills</h2>");
+            sb.append("<ul class='skills-list'>");
+            resume.getSkills().forEach(skill -> {
+                String skillName = skill.getSkillName() != null ? skill.getSkillName().trim() : "";
+                if (!skillName.isEmpty()) {
+                    sb.append("<li>").append(escapeHtml(skillName)).append("</li>");
+                }
+            });
+            sb.append("</ul></div>");
+        }
+
+        sb.append("</div>");
+        return sb.toString();
+    }
+
+    private String escapeHtml(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("&", "&amp;")
+                   .replace("<", "&lt;")
+                   .replace(">", "&gt;")
+                   .replace("\"", "&quot;")
+                   .replace("'", "&#39;");
     }
 
     private void validateFile(MultipartFile file) {
@@ -260,5 +374,24 @@ public class ResumeService {
     private SkillDTO mapSkillToDTO(Skill skill) {
         if (skill == null) return null;
         return new SkillDTO(skill.getSkillName(), skill.getProficiencyLevel());
+    }
+
+    private byte[] generatePdfFromHtml(String html) throws IOException {
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            PdfRendererBuilder builder = new PdfRendererBuilder();
+            builder.useFastMode();
+
+            // Load CSS
+            org.springframework.core.io.Resource cssResource = new ClassPathResource("static/css/default-resume-style.css");
+            String css = new String(Files.readAllBytes(Paths.get(cssResource.getURI())));
+
+            // The HTML needs to be a full document for the renderer
+            String fullHtml = "<!DOCTYPE html><html><head><style>" + css + "</style></head><body>" + html + "</body></html>";
+
+            builder.withHtmlContent(fullHtml, null);
+            builder.toStream(outputStream);
+            builder.run();
+            return outputStream.toByteArray();
+        }
     }
 }

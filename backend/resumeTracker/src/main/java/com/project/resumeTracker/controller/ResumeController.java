@@ -179,7 +179,7 @@ public class ResumeController {
     @PutMapping("/{resumeId}/content")
     public ResponseEntity<ApiResponse<ResumeResponseDTO>> updateResumeContent(
             @PathVariable UUID resumeId,
-            @RequestBody Map<String, String> payload,
+            @RequestBody String htmlContent,
             Authentication authentication) {
         try {
             String username = authentication.getName();
@@ -187,7 +187,6 @@ public class ResumeController {
                     .orElseThrow(() -> new RuntimeException("User not found"));
             UUID userId = getUserUUID(user.getId());
 
-            String htmlContent = payload.get("htmlContent");
             if (htmlContent == null || htmlContent.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body(ApiResponse.error("Content cannot be empty", null));
             }

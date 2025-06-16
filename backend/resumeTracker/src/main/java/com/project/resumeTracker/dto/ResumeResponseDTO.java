@@ -38,4 +38,10 @@ public class ResumeResponseDTO {
         this.uploadDate = uploadDate;
         this.parsingStatus = parsingStatus;
     }
+
+    // Constructor for lightweight update response
+    public ResumeResponseDTO(UUID id, String originalFilename) {
+        this.id = id;
+        this.originalFilename = originalFilename;
+    }
 }

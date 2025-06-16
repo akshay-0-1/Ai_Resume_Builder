@@ -94,21 +94,22 @@ const ResumeDisplay = ({ resume }) => {
     }
     setIsSaving(true);
     try {
-      // Wrap the editor content to ensure it's a well-formed HTML document
-      const wellFormedHtmlContent = `<html><body>${editorContent}</body></html>`;
-      const result = await resumeService.updateResumeContent(resume.id, wellFormedHtmlContent);
-      if (result.success) {
+      // The backend controller expects a JSON object with the key 'htmlContent'.
+      // axiosInstance will automatically set the Content-Type to application/json.
+      const response = await axiosInstance.put(`/resumes/${resume.id}/content`, {
+        htmlContent: editorContent
+      });
+
+      if (response.data && response.data.success) {
         toast.success('Resume updated successfully!');
-        setIsEditing(false);
-        // The useEffect will trigger a refresh because isEditing changed
+        setIsEditing(false); // This triggers the useEffect to refetch the preview
       } else {
-        throw new Error(result.error);
+        throw new Error(response.data.error || 'An unknown error occurred during save.');
       }
     } catch (error) {
-      console.error('--- Save Operation Failed: Full Error Object ---');
-      console.error(error);
-      console.error('---------------------------------------------');
-      toast.error(`Save failed: ${error.message}`);
+      console.error('--- Save Operation Failed: Full Error Object ---', error);
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Network error or server is down.';
+      toast.error(`Save failed: ${errorMessage}`);
     } finally {
       setIsSaving(false);
     }
