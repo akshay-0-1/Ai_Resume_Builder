@@ -50,12 +50,12 @@ const AnalysisDisplay = () => {
       {/* Job Score */}
       <Card className="p-6">
         <div className="flex justify-center">
-          <JobScoreCircle score={analysisResult.data?.jobScore} />
+          <JobScoreCircle score={analysisResult?.jobScore} />
         </div>
       </Card>
 
       {/* Targeted Changes */}
-      {analysisResult.data?.targetedChanges && analysisResult.data?.targetedChanges.length > 0 && (
+      {analysisResult?.targetedChanges && analysisResult?.targetedChanges.length > 0 && (
         <Card className="p-6">
           <div className="flex items-center space-x-2 mb-4">
             <Target className="w-5 h-5 text-blue-600" />
@@ -63,13 +63,13 @@ const AnalysisDisplay = () => {
               Targeted Improvements
             </h3>
           </div>
-          
+
           <p className="text-sm text-gray-600 mb-4">
             Specific changes to make your resume more aligned with this job:
           </p>
-          
+
           <div className="space-y-3">
-            {analysisResult.data.targetedChanges.map((change, index) => (
+            {analysisResult.targetedChanges.map((change, index) => (
               <TargetedChangeCard
                 key={index}
                 section={change.section}
@@ -81,7 +81,7 @@ const AnalysisDisplay = () => {
       )}
 
       {/* Overall Improvements */}
-      {analysisResult.data?.overallImprovements && analysisResult.data?.overallImprovements.length > 0 && (
+      {analysisResult?.overallImprovements && analysisResult?.overallImprovements.length > 0 && (
         <Card className="p-6">
           <div className="flex items-center space-x-2 mb-4">
             <Lightbulb className="w-5 h-5 text-amber-600" />
@@ -89,13 +89,13 @@ const AnalysisDisplay = () => {
               General Feedback
             </h3>
           </div>
-          
+
           <p className="text-sm text-gray-600 mb-4">
             Overall observations and recommendations:
           </p>
-          
+
           <div className="space-y-3">
-            {analysisResult.data.overallImprovements.map((improvement, index) => (
+            {analysisResult.overallImprovements.map((improvement, index) => (
               <div key={index} className="flex items-start space-x-3">
                 <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
                 <p className="text-gray-700 leading-relaxed">

@@ -14,7 +14,7 @@ const History = () => {
             try {
                 const response = await resumeService.getAnalysisHistory();
                 if (response.success) {
-                    setHistory(response.data.data || []);
+                    setHistory(response.data || []);
                 } else {
                     setError(response.error);
                 }

@@ -40,11 +40,6 @@ public class ResumeController {
     private final JobAnalysisService jobAnalysisService;
     private final JobAnalysisRepository jobAnalysisRepository;
 
-    private UUID getUserUUID(Long userId) {
-        // Create a deterministic UUID based on the user's ID
-        return UUID.nameUUIDFromBytes(("user-" + userId).getBytes());
-    }
-
     @PostMapping("/upload")
     public ResponseEntity<ApiResponse<ResumeResponseDTO>> uploadResume(
             @RequestParam("file") MultipartFile file,
@@ -55,8 +50,7 @@ public class ResumeController {
             User user = userRepository.findByUsername(username)
                     .orElseThrow(() -> new RuntimeException("User not found"));
             
-            // Generate a deterministic UUID based on the user's ID
-            UUID userId = getUserUUID(user.getId());
+            Long userId = user.getId();
             
             ResumeResponseDTO resume = resumeService.uploadResume(file, userId);
 
@@ -82,7 +76,7 @@ public class ResumeController {
             String username = authentication.getName();
             User user = userRepository.findByUsername(username)
                     .orElseThrow(() -> new RuntimeException("User not found"));
-            UUID userId = getUserUUID(user.getId());
+            Long userId = user.getId();
 
             if (request.getResumeId() == null) {
                 return ResponseEntity.badRequest()
@@ -129,8 +123,7 @@ public class ResumeController {
             User user = userRepository.findByUsername(username)
                     .orElseThrow(() -> new RuntimeException("User not found"));
             
-            // Generate a deterministic UUID based on the user's ID
-            UUID userId = getUserUUID(user.getId());
+            Long userId = user.getId();
 
             if (page >= 0 && size > 0) {
                 Page<ResumeInfoDTO> resumes = resumeService.getUserResumes(
@@ -159,8 +152,7 @@ public class ResumeController {
             User user = userRepository.findByUsername(username)
                     .orElseThrow(() -> new RuntimeException("User not found"));
             
-            // Generate a deterministic UUID based on the user's ID
-            UUID userId = getUserUUID(user.getId());
+            Long userId = user.getId();
             
             ResumeResponseDTO resume = resumeService.getResumeById(resumeId, userId);
 
@@ -179,13 +171,14 @@ public class ResumeController {
     @PutMapping("/{resumeId}/content")
     public ResponseEntity<ApiResponse<ResumeResponseDTO>> updateResumeContent(
             @PathVariable UUID resumeId,
-            @RequestBody String htmlContent,
+            @RequestBody Map<String, String> payload,
             Authentication authentication) {
         try {
             String username = authentication.getName();
             User user = userRepository.findByUsername(username)
                     .orElseThrow(() -> new RuntimeException("User not found"));
-            UUID userId = getUserUUID(user.getId());
+            Long userId = user.getId();
+            String htmlContent = payload.get("htmlContent");
 
             if (htmlContent == null || htmlContent.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body(ApiResponse.error("Content cannot be empty", null));
@@ -215,7 +208,7 @@ public class ResumeController {
             String username = authentication.getName();
             User user = userRepository.findByUsername(username)
                     .orElseThrow(() -> new RuntimeException("User not found"));
-            UUID userId = getUserUUID(user.getId());
+            Long userId = user.getId();
 
             com.project.resumeTracker.entity.Resume resume = resumeService.getResumeFileById(resumeId, userId);
 
@@ -242,7 +235,7 @@ public class ResumeController {
             String username = authentication.getName();
             User user = userRepository.findByUsername(username)
                     .orElseThrow(() -> new RuntimeException("User not found"));
-            UUID userId = getUserUUID(user.getId());
+            Long userId = user.getId();
 
             List<JobAnalysisHistoryDTO> history = jobAnalysisRepository.findJobAnalysisHistoryByUserId(userId, PageRequest.of(0, 5));
 
@@ -265,7 +258,7 @@ public class ResumeController {
             User user = userRepository.findByUsername(username)
                     .orElseThrow(() -> new RuntimeException("User not found"));
             
-            UUID userId = getUserUUID(user.getId());
+            Long userId = user.getId();
             log.info("Fetching history for user ID: {}", userId);
 
             List<JobAnalysisHistoryDTO> history = jobAnalysisRepository.findJobAnalysisHistoryByUserId(userId, PageRequest.of(0, 5));
@@ -294,8 +287,7 @@ public class ResumeController {
             User user = userRepository.findByUsername(username)
                     .orElseThrow(() -> new RuntimeException("User not found"));
             
-            // Generate a deterministic UUID based on the user's ID
-            UUID userId = getUserUUID(user.getId());
+            Long userId = user.getId();
             
             resumeService.deleteResume(resumeId, userId);
 

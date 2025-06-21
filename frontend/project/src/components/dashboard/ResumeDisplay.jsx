@@ -75,11 +75,25 @@ const ResumeDisplay = ({ resume }) => {
     };
   }, [resume, isEditing, fetchAndSetFile]);
 
-  const handleEditClick = () => {
-    // Convert plain text to simple HTML for the editor
-    const html = resume.resumeContent.split('\n').map(p => `<p>${p}</p>`).join('');
-    setEditorContent(html);
-    setIsEditing(true);
+  const handleEditClick = async () => {
+    if (!resume || !resume.id) return;
+    setIsLoading(true);
+    try {
+      // Fetch the full resume data, including the rich htmlContent
+      const response = await axiosInstance.get(`/resumes/${resume.id}`);
+      const fullResume = response.data.data;
+
+      // Use htmlContent if available, otherwise fallback to the plain text conversion
+      const contentToEdit = fullResume.htmlContent || fullResume.resumeContent.split('\n').map(p => `<p>${p}</p>`).join('');
+
+      setEditorContent(contentToEdit);
+      setIsEditing(true);
+    } catch (error) {
+      console.error('Error fetching resume for editing:', error);
+      toast.error('Could not load resume content for editing.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCancelClick = () => {
