@@ -4,12 +4,6 @@
 % Based off of: https://github.com/sb2nov/resume
 % License : MIT
 %------------------------
-%-------------------------
-% Resume in Latex
-% Author : Jake Gutierrez
-% Based off of: https://github.com/sb2nov/resume
-% License : MIT
-%------------------------
 
 \documentclass[letterpaper,11pt]{article}
 
@@ -110,8 +104,10 @@
 
 \newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
 
-\renewcommand\labelitemi{$\vcenter{\hbox{\tiny$\bullet$}}$}
-\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+\renewcommand
+\labelitemi{$\vcenter{\hbox{\tiny$\bullet$}}$}
+\renewcommand
+\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
 
 \newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.0in, label={}]}
 \newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
@@ -126,8 +122,8 @@
 
 %----------HEADING----------
 \begin{center}
-    {\Huge \scshape {{name}}} \\%[4pt]
-    {{location}} \\%[3pt]
+    {\Huge \scshape {{name}}} \\[4pt]
+    {{location}} \\[3pt]
     \small 
     \faPhone\ {{phone}} \hspace{0.5em} % Phone
     \href{mailto:{{email}}}{\faEnvelope\ \underline{{{email}}}} \hspace{0.5em} % Email
@@ -139,31 +135,40 @@
 %-----------EDUCATION-----------
 \section{Education}
   \resumeSubHeadingListStart
-{{education}}
+    {{education}}
   \resumeSubHeadingListEnd
 
 
 %-----------EXPERIENCE-----------
 \section{Experience}
   \resumeSubHeadingListStart
-{{experience}}
+    {{experience}}
   \resumeSubHeadingListEnd
 \vspace{-16pt}
 
 %-----------PROJECTS-----------
-{{projects}}
+\section{Projects}
+    \vspace{-2pt}
+    \resumeSubHeadingListStart
+      {{projects}}
+    \resumeSubHeadingListEnd
+    \vspace{-6pt}
 
 %
 %-----------PROGRAMMING SKILLS-----------
 \section{Technical Skills}
-\begin{multicols}{3}[\columnsep=1.5em]
-\begin{itemize}[leftmargin=*, label={}]\small\raggedright
-{{skills}}
-\end{itemize}
-\end{multicols}
-\vspace{-4pt}
+ \begin{itemize}[leftmargin=0.15in, label={}]
+    \small
+    {{skills}}
+ \end{itemize}
+ \vspace{-4pt}
  
-{{certificates}}
+\section{Certificates}
+
+\begin{itemize}[leftmargin=0.15in, label={}]
+    \small
+    {{certificates}}
+\end{itemize}
 
 \vspace{-10pt}
 

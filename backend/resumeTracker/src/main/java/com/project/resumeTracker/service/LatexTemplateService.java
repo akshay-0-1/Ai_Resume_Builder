@@ -45,14 +45,14 @@ public class LatexTemplateService {
         Map<String, String> templateData = new HashMap<>();
 
         // Personal Information
-        PersonalDetails personalDetails = resume.getPersonalDetails();
-        if (personalDetails != null) {
-            templateData.put("name", escapeLatex(personalDetails.getName()));
-            templateData.put("email", escapeLatex(personalDetails.getEmail()));
-            templateData.put("phone", escapeLatex(personalDetails.getPhone()));
-            templateData.put("location", escapeLatex(personalDetails.getAddress()));
-            templateData.put("github", escapeLatex(personalDetails.getGithubUrl()));
-            templateData.put("linkedin", escapeLatex(personalDetails.getLinkedinUrl()));
+        PersonalDetails p = resume.getPersonalDetails();
+        if (p != null) {
+            templateData.put("name", escapeLatex(p.getName()));
+            templateData.put("email", escapeLatex(p.getEmail()));
+            templateData.put("phone", escapeLatex(p.getPhone()));
+            templateData.put("location", escapeLatex(p.getAddress()));
+            templateData.put("github", escapeLatex(p.getGithubUrl()));
+            templateData.put("linkedin", escapeLatex(p.getLinkedinUrl()));
         } else {
             templateData.put("name", "");
             templateData.put("email", "");
@@ -63,125 +63,89 @@ public class LatexTemplateService {
         }
 
         // Education
-        StringBuilder educationBuilder = new StringBuilder();
-        if (resume.getEducations() != null && !resume.getEducations().isEmpty()) {
-            for (Education education : resume.getEducations()) {
-                educationBuilder.append("    \\resumeSubheading\n");
-                String startDate = education.getStartDate() != null ? education.getStartDate().toString() : "";
-                String endDate = education.getEndDate() != null ? education.getEndDate().toString() : "Present";
-                educationBuilder.append("      {").append(escapeLatex(education.getInstitutionName())).append("}{").append(escapeLatex(startDate)).append(" -- ").append(escapeLatex(endDate)).append("}\n");
-                educationBuilder.append("      {").append(escapeLatex(education.getDegree())).append("}{").append(escapeLatex(education.getFieldOfStudy())).append("}\n");
-
-                if (education.getDescription() != null && !education.getDescription().isBlank()) {
-                    educationBuilder.append("    \\resumeItemListStart\n");
-                    String[] items = education.getDescription().split("\\r?\\n");
-                    for (String item : items) {
-                        if (item != null && !item.trim().isEmpty()) {
-                            educationBuilder.append("        \\resumeItem{").append(escapeLatex(item.trim())).append("}\n");
-                        }
-                    }
-                    educationBuilder.append("    \\resumeItemListEnd\n");
-                }
+        StringBuilder eduBuilder = new StringBuilder();
+        if (resume.getEducations() != null) {
+            for (Education edu : resume.getEducations()) {
+                String dates = (edu.getStartDate() != null ? edu.getStartDate().toString() : "") + " -- " + (edu.getEndDate() != null ? edu.getEndDate().toString() : "Present");
+                eduBuilder.append(String.format("\\resumeSubheading{%s}{%s}{%s}{%s}\n", 
+                    escapeLatex(edu.getInstitutionName()), escapeLatex(dates), escapeLatex(edu.getDegree()), escapeLatex(edu.getFieldOfStudy())));
             }
         }
-        templateData.put("education", educationBuilder.toString());
+        templateData.put("education", eduBuilder.length() == 0 ? "\\item{}" : eduBuilder.toString());
 
         // Experience
-        StringBuilder experienceBuilder = new StringBuilder();
-        if (resume.getWorkExperiences() != null && !resume.getWorkExperiences().isEmpty()) {
+        StringBuilder expBuilder = new StringBuilder();
+        if (resume.getWorkExperiences() != null) {
             for (WorkExperience exp : resume.getWorkExperiences()) {
-                experienceBuilder.append("    \\resumeSubheading\n");
-                String startDate = exp.getStartDate() != null ? exp.getStartDate().toString() : "";
-                String endDate = exp.getEndDate() != null ? exp.getEndDate().toString() : "Present";
-                experienceBuilder.append("      {").append(escapeLatex(exp.getJobTitle())).append("}{").append(escapeLatex(startDate)).append(" -- ").append(escapeLatex(endDate)).append("}\n");
-                experienceBuilder.append("      {").append(escapeLatex(exp.getCompanyName())).append("}{").append(escapeLatex(exp.getLocation())).append("}\n");
-                
+                String dates = (exp.getStartDate() != null ? exp.getStartDate().format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy")) : "") + " -- " + 
+                               (exp.isCurrentJob() || exp.getEndDate() == null ? "Present" : exp.getEndDate().format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy")));
+                expBuilder.append(String.format("\\resumeSubheading{%s}{%s}{%s}{%s}\n", 
+                    escapeLatex(exp.getJobTitle()), escapeLatex(dates), escapeLatex(exp.getCompanyName()), escapeLatex(exp.getLocation())));
                 if (exp.getDescription() != null && !exp.getDescription().isBlank()) {
-                    experienceBuilder.append("    \\resumeItemListStart\n");
-                    String[] items = exp.getDescription().split("\\r?\\n");
-                    for (String item : items) {
-                        if (item != null && !item.trim().isEmpty()) {
-                            experienceBuilder.append("        \\resumeItem{").append(escapeLatex(item.trim())).append("}\n");
-                        }
+                    expBuilder.append("    \\resumeItemListStart\n");
+                    for (String item : exp.getDescription().split("\\r?\\n")) {
+                        if (item != null && !item.trim().isEmpty()) expBuilder.append(String.format("        \\resumeItem{%s}\n", escapeLatex(item.trim())));
                     }
-                    experienceBuilder.append("    \\resumeItemListEnd\n");
+                    expBuilder.append("    \\resumeItemListEnd\n");
                 }
             }
         }
-        templateData.put("experience", experienceBuilder.toString());
+        templateData.put("experience", expBuilder.length() == 0 ? "\\item{}" : expBuilder.toString());
 
         // Projects
-        StringBuilder projectsBuilder = new StringBuilder();
-        if (resume.getProjects() != null && !resume.getProjects().isEmpty()) {
-            projectsBuilder.append("\\section{Projects}\n");
-            projectsBuilder.append("    \\resumeSubHeadingListStart\n");
-            for (Project project : resume.getProjects()) {
-                projectsBuilder.append("    \\resumeProjectHeading\n");
-                projectsBuilder.append("      {\\textbf{").append(escapeLatex(project.getName())).append("} | \\textit{").append(escapeLatex(project.getTechStack())).append("}}{").append(project.getDate() != null ? project.getDate().toString() : "").append("}\n");
-                if (project.getAchievements() != null && !project.getAchievements().isEmpty()) {
-                    projectsBuilder.append("    \\resumeItemListStart\n");
-                    for (String achievement : project.getAchievements()) {
-                        if (achievement != null && !achievement.trim().isEmpty()) {
-                            projectsBuilder.append("        \\resumeItem{").append(escapeLatex(achievement.trim())).append("}\n");
-                        }
+        StringBuilder projBuilder = new StringBuilder();
+        if (resume.getProjects() != null) {
+            for (Project proj : resume.getProjects()) {
+                String heading = String.format("\\textbf{%s} | \\emph{%s}", escapeLatex(proj.getName()), escapeLatex(proj.getTechStack()));
+                projBuilder.append(String.format("\\resumeProjectHeading{%s}{%s}\n", heading, escapeLatex(proj.getDate())));
+                if (proj.getAchievements() != null && !proj.getAchievements().isEmpty()) {
+                    projBuilder.append("    \\resumeItemListStart\n");
+                    for (String ach : proj.getAchievements()) {
+                        if (ach != null && !ach.trim().isEmpty()) projBuilder.append(String.format("        \\resumeItem{%s}\n", escapeLatex(ach.trim())));
                     }
-                    projectsBuilder.append("    \\resumeItemListEnd\n");
+                    projBuilder.append("    \\resumeItemListEnd\n");
                 }
             }
-            projectsBuilder.append("    \\resumeSubHeadingListEnd\n");
         }
-        templateData.put("projects", projectsBuilder.toString());
+        if (log.isDebugEnabled()) log.debug("Generated projects LaTeX:\n{}", projBuilder);
+        templateData.put("projects", projBuilder.length() == 0 ? "\\item{}" : projBuilder.toString());
 
         // Skills
-        log.info("======================================================");
-        log.info("PREPARING SKILLS FOR LATEX TEMPLATE (Java 21 String Templates)");
-        log.info("======================================================");
-
-        String skillsContent = "";
         if (resume.getSkills() != null && !resume.getSkills().isEmpty()) {
-            log.info("Processing {} skills with Java 21 String Templates.", resume.getSkills().size());
-            
-            skillsContent = resume.getSkills().stream()
-                .filter(skill -> skill != null && skill.getSkillName() != null && !skill.getSkillName().isBlank())
-                .map(skill -> {
-                    String skillName = escapeLatex(skill.getSkillName());
-                    String proficiency = skill.getProficiencyLevel();
-                    // Defensively check for proficiency to avoid "null" strings
-                    if (proficiency == null || proficiency.isBlank() || "null".equalsIgnoreCase(proficiency.trim())) {
-                        return "\\item \\textbf{" + skillName + "}";
-                    } else {
-                        String escapedProficiency = escapeLatex(proficiency);
-                        return "\\item \\textbf{" + skillName + "}: " + escapedProficiency;
-                    }
-                })
-                .collect(java.util.stream.Collectors.joining("\n"));
+            java.util.Map<String, java.util.List<String>> byCategory = new java.util.LinkedHashMap<>();
+            resume.getSkills().stream()
+                    .filter(s -> s != null && s.getSkillName() != null && !s.getSkillName().isBlank())
+                    .forEach(s -> {
+                        String cat = s.getCategory() != null && !s.getCategory().isBlank() ? escapeLatex(s.getCategory()) : "Other";
+                        byCategory.computeIfAbsent(cat, k -> new java.util.ArrayList<>()).add(escapeLatex(s.getSkillName()));
+                    });
 
+            StringBuilder skillsBuilder = new StringBuilder();
+            int idx = 0;
+            for (var entry : byCategory.entrySet()) {
+                if (idx++ > 0) skillsBuilder.append(" \\\\n"); // new line between categories
+                skillsBuilder.append(String.format("\\textbf{%s}{: %s}", entry.getKey(), String.join(", ", entry.getValue())));
+            }
+            String skillsBlock = skillsBuilder.toString();
+            templateData.put("skills", skillsBlock.isBlank() ? "\\item{}" : "\\item{" + skillsBlock + "}");
         } else {
-            log.warn("Skills list is null or empty. Setting empty string for skills.");
+            templateData.put("skills", "\\item{}");
         }
-        templateData.put("skills", skillsContent);
-
-        log.info("======================================================");
-        log.info("FINAL GENERATED SKILLS CONTENT (Java 21):");
-        log.info("\n---\n{}\n---", skillsContent);
-        log.info("======================================================");
 
         // Certificates
-        StringBuilder certificatesBuilder = new StringBuilder();
-        if (resume.getCertificates() != null && !resume.getCertificates().isEmpty()) {
-            certificatesBuilder.append("\\section{Certificates}\n");
-            certificatesBuilder.append("    \\begin{itemize}\n");
-            for (Certificate certificate : resume.getCertificates()) {
-                certificatesBuilder.append("    \\item{\n");
-                certificatesBuilder.append("        \\textbf{").append(escapeLatex(certificate.getName())).append("} \\hfill \\textbf{\\textit{Issued ").append(escapeLatex(certificate.getDate() != null ? certificate.getDate().toString() : "")).append("}}\\\\n");
-                certificatesBuilder.append("        \\textit{").append(escapeLatex(certificate.getInstitution())).append("} \\hfill \\href{").append(escapeLatex(certificate.getUrl())).append("}{\\textit{ Link}}\n");
-                certificatesBuilder.append("    }\n");
+        StringBuilder certBuilder = new StringBuilder();
+        if (resume.getCertificates() != null) {
+            for (Certificate cert : resume.getCertificates()) {
+                String issuedDate = cert.getDate() != null ? cert.getDate().toString() : "";
+                certBuilder.append("    \\item{\n");
+                certBuilder.append(String.format("        \\textbf{%s} \\hfill \\textbf{\\textit{Issued %s}}\\\\n", escapeLatex(cert.getName()), escapeLatex(issuedDate)));
+                certBuilder.append(String.format("        \\textit{%s} \\hfill \\href{%s}{\\textit{ Link}}\n", escapeLatex(cert.getInstitution()), escapeLatex(cert.getUrl())));
+                certBuilder.append("    }\n");
             }
-            certificatesBuilder.append("    \\end{itemize}\n");
         }
-        templateData.put("certificates", certificatesBuilder.toString());
+        if (log.isDebugEnabled()) log.debug("Generated certificates LaTeX:\n{}", certBuilder);
+        templateData.put("certificates", certBuilder.length() == 0 ? "\\item{}" : certBuilder.toString());
 
-        log.info("Prepared LaTeX template data for resumeId: {}. Data: {}", resume.getId(), templateData);
         return templateData;
     }
 
