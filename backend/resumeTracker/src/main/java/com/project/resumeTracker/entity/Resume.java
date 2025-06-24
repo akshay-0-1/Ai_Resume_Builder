@@ -2,13 +2,12 @@ package com.project.resumeTracker.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.List;
@@ -53,7 +52,11 @@ public class Resume {
 
     @Lob
     @Column(columnDefinition = "TEXT")
-    private String htmlContent;
+    private String latexContent;
+
+    @JdbcTypeCode(SqlTypes.VARBINARY)
+    @Column(name = "latex_pdf")
+    private byte[] latexPdf;
 
     @Column(name = "is_active")
     private Boolean isActive = true;
@@ -72,6 +75,12 @@ public class Resume {
 
     @OneToMany(mappedBy = "resume", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Skill> skills = new ArrayList<>();
+
+    @OneToMany(mappedBy = "resume", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Project> projects = new ArrayList<>();
+
+    @OneToMany(mappedBy = "resume", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Certificate> certificates = new ArrayList<>();
 
     @CreationTimestamp
     @Column(name = "upload_date", updatable = false)

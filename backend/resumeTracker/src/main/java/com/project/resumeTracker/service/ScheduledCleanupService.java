@@ -1,8 +1,6 @@
 package com.project.resumeTracker.service;
 
-import com.project.resumeTracker.entity.JobAnalysis;
 import com.project.resumeTracker.entity.Resume;
-import com.project.resumeTracker.repository.JobAnalysisRepository;
 import com.project.resumeTracker.repository.ResumeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +17,6 @@ import java.util.List;
 public class ScheduledCleanupService {
 
     private final ResumeRepository resumeRepository;
-    private final JobAnalysisRepository jobAnalysisRepository;
 
     /**
      * This scheduled task runs to clean up old resumes.

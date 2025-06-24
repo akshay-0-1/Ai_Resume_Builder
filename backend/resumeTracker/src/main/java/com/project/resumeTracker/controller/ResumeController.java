@@ -6,9 +6,8 @@ import com.project.resumeTracker.dto.JobAnalysisResponseDTO;
 import com.project.resumeTracker.dto.ResumeResponseDTO;
 import com.project.resumeTracker.dto.ResumeInfoDTO;
 import com.project.resumeTracker.dto.JobAnalysisHistoryDTO;
-import com.project.resumeTracker.entity.JobAnalysis;
 import com.project.resumeTracker.entity.User;
-import com.project.resumeTracker.repository.JobAnalysisRepository;
+
 import com.project.resumeTracker.repository.UserRepository;
 import com.project.resumeTracker.service.JobAnalysisService;
 import com.project.resumeTracker.service.ResumeService;
@@ -17,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-import java.util.Map;
+import java.io.IOException;
 import java.util.UUID;
 
 @RestController
@@ -38,7 +38,6 @@ public class ResumeController {
     private final ResumeService resumeService;
     private final UserRepository userRepository;
     private final JobAnalysisService jobAnalysisService;
-    private final JobAnalysisRepository jobAnalysisRepository;
 
     @PostMapping("/upload")
     public ResponseEntity<ApiResponse<ResumeResponseDTO>> uploadResume(
@@ -46,6 +45,7 @@ public class ResumeController {
             Authentication authentication) {
 
         try {
+            log.info("Received request to upload resume for user: {}", authentication.getName());
             String username = authentication.getName();
             User user = userRepository.findByUsername(username)
                     .orElseThrow(() -> new RuntimeException("User not found"));
@@ -54,9 +54,14 @@ public class ResumeController {
             
             ResumeResponseDTO resume = resumeService.uploadResume(file, userId);
 
+            log.info("Successfully uploaded resume for user: {}", username);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success("Resume uploaded successfully", resume));
 
+        } catch (IOException e) {
+            log.error("File processing error during resume upload: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("File processing failed", "Error processing the uploaded file."));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Invalid request", e.getMessage()));
@@ -168,43 +173,12 @@ public class ResumeController {
         }
     }
 
-    @PutMapping("/{resumeId}/content")
-    public ResponseEntity<ApiResponse<ResumeResponseDTO>> updateResumeContent(
-            @PathVariable UUID resumeId,
-            @RequestBody Map<String, String> payload,
-            Authentication authentication) {
-        try {
-            String username = authentication.getName();
-            User user = userRepository.findByUsername(username)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-            Long userId = user.getId();
-            String htmlContent = payload.get("htmlContent");
-
-            if (htmlContent == null || htmlContent.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(ApiResponse.error("Content cannot be empty", null));
-            }
-
-            ResumeResponseDTO updatedDto = resumeService.updateResumeContent(resumeId, userId, htmlContent);
-
-            return ResponseEntity.ok(ApiResponse.success("Resume updated successfully", updatedDto));
-
-        } catch (SecurityException e) {
-            log.warn("Access denied while updating resume content: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error("Access denied", null));
-        } catch (RuntimeException e) {
-            log.error("Error updating resume content: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage(), null));
-        } catch (Exception e) {
-            log.error("Internal server error while updating resume content: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("Failed to update resume", "Internal server error"));
-        }
-    }
-
     @GetMapping("/{resumeId}/download")
     public ResponseEntity<ByteArrayResource> downloadResume(
             @PathVariable UUID resumeId,
             Authentication authentication) {
         try {
+            log.info("Received request to download resume with ID: {} for user: {}", resumeId, authentication.getName());
             String username = authentication.getName();
             User user = userRepository.findByUsername(username)
                     .orElseThrow(() -> new RuntimeException("User not found"));
@@ -214,6 +188,7 @@ public class ResumeController {
 
             ByteArrayResource resource = new ByteArrayResource(resume.getFileData());
 
+            log.info("Successfully processed download request for resume ID: {}", resumeId);
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=\"" + resume.getOriginalFilename() + "\"")
                     .contentType(MediaType.parseMediaType(resume.getMimeType()))
@@ -229,51 +204,26 @@ public class ResumeController {
         }
     }
 
-    @GetMapping("/history")
-    public ResponseEntity<ApiResponse<List<JobAnalysisHistoryDTO>>> getAnalysisHistory(Authentication authentication) {
+    @GetMapping("/analysis/history")
+    public ResponseEntity<ApiResponse<List<JobAnalysisHistoryDTO>>> getAnalysisHistory(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size) {
         try {
             String username = authentication.getName();
             User user = userRepository.findByUsername(username)
                     .orElseThrow(() -> new RuntimeException("User not found"));
             Long userId = user.getId();
 
-            List<JobAnalysisHistoryDTO> history = jobAnalysisRepository.findJobAnalysisHistoryByUserId(userId, PageRequest.of(0, 5));
+            Pageable pageable = PageRequest.of(page, size);
+            List<JobAnalysisHistoryDTO> history = jobAnalysisService.getJobAnalysisHistory(userId, pageable);
 
-            return ResponseEntity.ok(ApiResponse.success("History fetched successfully", history));
+            return ResponseEntity.ok(ApiResponse.success("Analysis history retrieved successfully", history));
 
         } catch (Exception e) {
-            log.error("Error fetching analysis history: {}", e.getMessage());
+            log.error("Error fetching analysis history: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to fetch history", "Internal server error"));
-        }
-    }
-
-    @GetMapping("/analysis/history")
-    public ResponseEntity<ApiResponse<List<JobAnalysisHistoryDTO>>> getAnalysisHistoryOld(
-            Authentication authentication) {
-
-        log.info("Attempting to retrieve analysis history.");
-        try {
-            String username = authentication.getName();
-            User user = userRepository.findByUsername(username)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-            
-            Long userId = user.getId();
-            log.info("Fetching history for user ID: {}", userId);
-
-            List<JobAnalysisHistoryDTO> history = jobAnalysisRepository.findJobAnalysisHistoryByUserId(userId, PageRequest.of(0, 5));
-            log.info("Found {} history records for user ID: {}.", history.size(), userId);
-
-            if (!history.isEmpty()) {
-                log.debug("History data for user ID {}: {}", userId, history);
-            }
-
-            return ResponseEntity.ok(ApiResponse.success("Analysis history retrieved", history));
-
-        } catch (Exception e) {
-            log.error("Error retrieving analysis history: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("Failed to retrieve history", "Internal server error"));
         }
     }
 

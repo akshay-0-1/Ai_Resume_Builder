@@ -1,6 +1,6 @@
 package com.project.resumeTracker.dto;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
+
 import lombok.Data;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
@@ -20,7 +20,7 @@ public class ResumeResponseDTO {
     private LocalDateTime uploadDate;
     private String parsingStatus;
     private String resumeContent; // This holds the raw text
-    private String htmlContent; // This will hold the styled HTML
+    private String latexContent; // This will hold the LaTeX content
 
     // Parsed data
     private PersonalDetailsDTO personalDetails;

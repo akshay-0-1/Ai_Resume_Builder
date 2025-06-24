@@ -1,30 +1,28 @@
 package com.project.resumeTracker.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
 import java.util.UUID;
+import java.util.List;
 
 @Entity
-@Table(name = "skills")
-@Getter
-@Setter
+@Table(name = "projects")
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Skill {
+public class Project {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
-    private String category;
-    private String value;
-
-    private String skillName;
-    private String proficiencyLevel; // e.g., Beginner, Intermediate, Advanced
+    private String name;
+    private String techStack;
+    private String date;
+    private List<String> achievements;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "resume_id", nullable = false)

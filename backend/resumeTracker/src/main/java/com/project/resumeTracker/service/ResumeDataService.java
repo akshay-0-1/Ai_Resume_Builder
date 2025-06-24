@@ -39,7 +39,19 @@ public class ResumeDataService {
 
                 resumeToEnrich.getSkills().clear();
                 if (extractedData.getSkills() != null) {
-                    extractedData.getSkills().forEach(resumeToEnrich::addSkill);
+                    for (Skill skill : extractedData.getSkills()) {
+                        String skillName = skill.getSkillName();
+                        // A skill is only valid if its name is not null, blank, or the string "null"
+                        if (skillName != null && !skillName.isBlank() && !"null".equalsIgnoreCase(skillName.trim())) {
+                            String proficiency = skill.getProficiencyLevel();
+                            // If proficiency is the string "null", treat it as actually null
+                            if (proficiency != null && "null".equalsIgnoreCase(proficiency.trim())) {
+                                skill.setProficiencyLevel(null);
+                            }
+                            resumeToEnrich.addSkill(skill);
+                        }
+                        // Skills with invalid names are ignored and not added to the resume.
+                    }
                 }
             }
 

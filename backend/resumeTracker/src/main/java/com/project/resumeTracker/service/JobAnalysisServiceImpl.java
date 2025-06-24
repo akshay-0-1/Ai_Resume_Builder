@@ -3,8 +3,10 @@ package com.project.resumeTracker.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.project.resumeTracker.dto.JobAnalysisHistoryDTO;
 import com.project.resumeTracker.dto.JobAnalysisResponseDTO;
 import com.project.resumeTracker.dto.TargetedChangeDTO;
+import org.springframework.data.domain.Pageable;
 import com.project.resumeTracker.entity.JobAnalysis;
 import com.project.resumeTracker.entity.Resume;
 import com.project.resumeTracker.repository.JobAnalysisRepository;
@@ -147,5 +149,11 @@ public class JobAnalysisServiceImpl implements JobAnalysisService {
             jobAnalysisRepository.save(oldestEntry);
             log.info("Cleaned up oldest analysis history for user ID: {}. Kept 5 most recent.", userId);
         }
+    }
+
+    @Override
+    public List<JobAnalysisHistoryDTO> getJobAnalysisHistory(Long userId, Pageable pageable) {
+        log.info("Fetching analysis history for user ID: {} with pageable: {}", userId, pageable);
+        return jobAnalysisRepository.findJobAnalysisHistoryByUserId(userId, pageable);
     }
 }
