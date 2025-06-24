@@ -53,6 +53,26 @@ public class ResumeDataService {
                         // Skills with invalid names are ignored and not added to the resume.
                     }
                 }
+
+                // Handle Projects
+                resumeToEnrich.getProjects().clear();
+                if (extractedData.getProjects() != null) {
+                    for (Project project : extractedData.getProjects()) {
+                        if (project != null && project.getName() != null && !project.getName().isBlank()) {
+                            resumeToEnrich.addProject(project);
+                        }
+                    }
+                }
+
+                // Handle Certificates
+                resumeToEnrich.getCertificates().clear();
+                if (extractedData.getCertificates() != null) {
+                    for (Certificate certificate : extractedData.getCertificates()) {
+                        if (certificate != null && certificate.getName() != null && !certificate.getName().isBlank()) {
+                            resumeToEnrich.addCertificate(certificate);
+                        }
+                    }
+                }
             }
 
             resumeToEnrich.setParsingStatus("COMPLETED");

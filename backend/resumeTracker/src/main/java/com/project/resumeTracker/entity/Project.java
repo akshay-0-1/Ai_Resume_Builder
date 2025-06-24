@@ -22,7 +22,10 @@ public class Project {
     private String name;
     private String techStack;
     private String date;
-    private List<String> achievements;
+    @ElementCollection
+    @CollectionTable(name = "project_achievements", joinColumns = @JoinColumn(name = "project_id"))
+    @Column(name = "achievement", columnDefinition = "TEXT")
+    private List<String> achievements = new java.util.ArrayList<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "resume_id", nullable = false)

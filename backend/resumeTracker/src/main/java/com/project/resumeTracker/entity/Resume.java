@@ -131,4 +131,26 @@ public class Resume {
         skills.remove(skill);
         skill.setResume(null);
     }
+
+    // --- Project helpers ---
+    public void addProject(Project project) {
+        projects.add(project);
+        project.setResume(this);
+    }
+
+    public void removeProject(Project project) {
+        projects.remove(project);
+        project.setResume(null);
+    }
+
+    // --- Certificate helpers ---
+    public void addCertificate(Certificate certificate) {
+        certificates.add(certificate);
+        certificate.setResume(this);
+    }
+
+    public void removeCertificate(Certificate certificate) {
+        certificates.remove(certificate);
+        certificate.setResume(null);
+    }
 }

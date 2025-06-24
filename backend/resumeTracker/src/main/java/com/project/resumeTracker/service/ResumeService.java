@@ -129,6 +129,8 @@ public class ResumeService {
         Hibernate.initialize(resume.getWorkExperiences());
         Hibernate.initialize(resume.getEducations());
         Hibernate.initialize(resume.getSkills());
+    Hibernate.initialize(resume.getProjects());
+    Hibernate.initialize(resume.getCertificates());
 
         try {
             // Generate LaTeX content and PDF
