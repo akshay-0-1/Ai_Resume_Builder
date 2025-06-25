@@ -6,13 +6,15 @@ import com.project.resumeTracker.dto.ResumeInfoDTO;
 import com.project.resumeTracker.dto.ResumeResponseDTO;
 import com.project.resumeTracker.dto.SkillDTO;
 import com.project.resumeTracker.dto.WorkExperienceDTO;
+import com.project.resumeTracker.dto.ResumeUpdateDTO;
+import jakarta.transaction.Transactional;
+import com.project.resumeTracker.dto.Project;
+import com.project.resumeTracker.dto.Certificate;
 import com.project.resumeTracker.entity.Education;
 import com.project.resumeTracker.entity.PersonalDetails;
 import com.project.resumeTracker.entity.Resume;
 import com.project.resumeTracker.entity.Skill;
 import com.project.resumeTracker.entity.WorkExperience;
-import com.project.resumeTracker.entity.Certificate;
-import com.project.resumeTracker.entity.Project;
 import com.project.resumeTracker.repository.ResumeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +29,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import com.project.resumeTracker.client.LatexApiClient;
+import com.project.resumeTracker.dto.ResumeStatusDTO;
+import org.springframework.mock.web.MockMultipartFile;
+import com.project.resumeTracker.service.ResumeProcessingTask;
+import org.springframework.context.annotation.Lazy;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +44,7 @@ public class ResumeService {
     private final DocumentParsingFacade documentParsingFacade;
     private final LatexTemplateService latexTemplateService;
     private final LatexApiClient latexApiClient;
+    private final ResumeProcessingTask processingTask;
 
     private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
             "application/pdf",
@@ -47,8 +54,71 @@ public class ResumeService {
 
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-    public ResumeResponseDTO uploadResume(MultipartFile file, Long userId) throws IOException {
-        log.info("Starting resume upload process for user {}", userId);
+    /**
+     * New async upload entry point. Saves the resume metadata immediately and returns, while heavy
+     * parsing/latex work is executed in a background task.
+     */
+    public ResumeResponseDTO enqueueUpload(MultipartFile file, Long userId) throws IOException {
+        log.info("Queueing resume upload for async processing user {}", userId);
+        validateFile(file);
+
+        String fileExtension = getFileExtension(file.getOriginalFilename());
+        String uniqueFilename = userId + "/" + UUID.randomUUID() + fileExtension;
+
+        Resume resume = new Resume();
+        resume.setUserId(userId);
+        resume.setFilename(uniqueFilename);
+        resume.setOriginalFilename(file.getOriginalFilename());
+        resume.setFileSize(file.getSize());
+        resume.setMimeType(file.getContentType());
+        resume.setFileData(file.getBytes());
+        resume.setIsActive(true);
+        resume.setParsingStatus("QUEUED");
+
+        Resume saved = resumeRepository.save(resume);
+        processingTask.processResume(saved.getId());
+        return convertToResponseDTO(saved);
+    }
+
+    /**
+     * This method is invoked asynchronously by {@link ResumeAsyncProcessor}.
+     */
+    @Transactional
+    public void processResume(UUID resumeId) {
+        Resume resume = resumeRepository.findById(resumeId)
+                .orElseThrow(() -> new RuntimeException("Resume not found"));
+        log.info("[ASYNC] Processing resume {} for user {}", resumeId, resume.getUserId());
+        try {
+            // Recreate MultipartFile for existing parsers
+            org.springframework.mock.web.MockMultipartFile mf = new org.springframework.mock.web.MockMultipartFile(
+                    resume.getOriginalFilename(), resume.getOriginalFilename(), resume.getMimeType(), resume.getFileData());
+
+            String rawText = documentParsingFacade.parseDocument(mf);
+            resume.setRawText(rawText);
+            resumeDataService.parseAndEnrichResume(rawText, resume);
+            log.info("[ASYNC] Parsing completed for {}", resumeId);
+
+            generateResumeContent(resume);
+            resume.setParsingStatus("COMPLETED");
+        } catch (Exception ex) {
+            log.error("[ASYNC] Failed to fully process resume {}: {}", resumeId, ex.getMessage(), ex);
+            resume.setParsingStatus("FAILED");
+        }
+        resumeRepository.save(resume);
+    }
+
+    public ResumeStatusDTO getResumeStatus(UUID resumeId, Long userId) {
+        Resume resume = resumeRepository.findById(resumeId)
+                .orElseThrow(() -> new RuntimeException("Resume not found"));
+        if (!resume.getUserId().equals(userId)) {
+            throw new SecurityException("Access denied");
+        }
+        return new ResumeStatusDTO(resume.getId(), resume.getParsingStatus(), resume.getErrorMessage());
+    }
+
+    // Existing synchronous method retained for internal use
+    public ResumeResponseDTO uploadResumeSync(MultipartFile file, Long userId) throws IOException {
+        log.info("[SYNC] Starting resume upload process for user {}", userId);
         validateFile(file);
 
         Resume savedResume = null;
@@ -116,7 +186,9 @@ public class ResumeService {
         if (!resume.getUserId().equals(userId)) {
             throw new SecurityException("Access denied.");
         }
-        return convertToResponseDTO(resume);
+        Hibernate.initialize(resume.getProjects());
+    Hibernate.initialize(resume.getCertificates());
+    return convertToResponseDTO(resume);
     }
 
     public Resume getResumeFileById(UUID resumeId, Long userId) {
@@ -126,24 +198,25 @@ public class ResumeService {
         if (!resume.getUserId().equals(userId)) {
             throw new SecurityException("Access denied.");
         }
+
+        // If previous attempt failed, propagate the failure message
+        if ("FAILED".equalsIgnoreCase(resume.getParsingStatus())) {
+            throw new com.project.resumeTracker.exception.LatexCompilationException(
+                    resume.getErrorMessage() != null ? resume.getErrorMessage() : "LaTeX compilation failed.");
+        }
+
         Hibernate.initialize(resume.getWorkExperiences());
         Hibernate.initialize(resume.getEducations());
         Hibernate.initialize(resume.getSkills());
-    Hibernate.initialize(resume.getProjects());
-    Hibernate.initialize(resume.getCertificates());
+        Hibernate.initialize(resume.getProjects());
+        Hibernate.initialize(resume.getCertificates());
 
-        try {
-            // Generate LaTeX content and PDF
-            String latexContent = generateLatexResumeContent(resume);
-            byte[] pdfData = generatePdfFromLatex(latexContent);
-            resume.setFileData(pdfData);
-            resume.setLatexContent(latexContent);
-            resume.setMimeType("application/pdf");
-        } catch (Exception e) {
-            log.error("Failed to generate PDF for resumeId: {}", resumeId, e);
-            throw new RuntimeException("Failed to generate PDF file.", e);
+        // If PDF already exists, return it
+        if (resume.getLatexPdf() != null && resume.getLatexPdf().length > 0) {
+            return resume;
         }
 
+        // PDF not ready yet – let controller decide how to respond (usually 202 Accepted).
         return resume;
     }
 
@@ -179,15 +252,11 @@ public class ResumeService {
     /**
      * Generate PDF from LaTeX content
      */
-    private byte[] generatePdfFromLatex(String latexContent) {
-        try {
-            log.info("Sending LaTeX content to compiler service.");
-            byte[] pdfBytes = latexApiClient.compileLatex(latexContent);
-            log.info("Successfully compiled LaTeX to PDF.");
-            return pdfBytes;
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to generate PDF from LaTeX", e);
-        }
+    private byte[] generatePdfFromLatex(String latexContent) throws IOException {
+        log.info("Sending LaTeX content to compiler service.");
+        byte[] pdfBytes = latexApiClient.compileLatex(latexContent);
+        log.info("Successfully compiled LaTeX to PDF.");
+        return pdfBytes;
     }
 
     /**
@@ -201,8 +270,9 @@ public class ResumeService {
         
         // Store LaTeX version
         resume.setLatexContent(latexContent);
-        resume.setFileData(latexPdf);
+        resume.setLatexPdf(latexPdf);
         resume.setMimeType("application/pdf");
+        resume.setParsingStatus("PDF_GENERATED");
         
         return resume;
     }
@@ -250,6 +320,12 @@ public class ResumeService {
         if (resume.getSkills() != null) {
             dto.setSkills(resume.getSkills().stream().map(this::mapSkillToDTO).collect(Collectors.toList()));
         }
+        if (resume.getProjects() != null) {
+            dto.setProjects(resume.getProjects().stream().map(this::mapProjectToDTO).collect(Collectors.toList()));
+        }
+        if (resume.getCertificates() != null) {
+            dto.setCertificates(resume.getCertificates().stream().map(this::mapCertificateToDTO).collect(Collectors.toList()));
+        }
         return dto;
     }
 
@@ -268,9 +344,138 @@ public class ResumeService {
         return new EducationDTO(education.getInstitutionName(), education.getDegree(), education.getFieldOfStudy(), education.getStartDate(), education.getEndDate(), education.getGrade(), education.getDescription());
     }
 
+    private Project mapProjectToDTO(com.project.resumeTracker.entity.Project projectEntity) {
+        if (projectEntity == null) return null;
+        Project dto = new Project();
+        dto.setName(projectEntity.getName());
+        dto.setTechStack(projectEntity.getTechStack());
+        dto.setDate(projectEntity.getDate());
+        dto.setAchievements(projectEntity.getAchievements());
+        return dto;
+    }
+
+    @Transactional
+    public ResumeResponseDTO updateResume(UUID resumeId, Long userId, ResumeUpdateDTO updateDTO) {
+        return updateResumeData(resumeId, userId, updateDTO);
+    }
+
+    private ResumeResponseDTO updateResumeData(UUID resumeId, Long userId, ResumeUpdateDTO updateDTO) {
+        log.info("Starting resume update for id: {} by user {}", resumeId, userId);
+        Resume resume = resumeRepository.findById(resumeId)
+                .orElseThrow(() -> new RuntimeException("Resume not found."));
+        if (!resume.getUserId().equals(userId)) {
+            throw new SecurityException("Access denied.");
+        }
+
+        // --- Personal details ---
+        if (updateDTO.getPersonalDetails() != null) {
+            PersonalDetailsDTO pdDto = updateDTO.getPersonalDetails();
+            com.project.resumeTracker.entity.PersonalDetails entity = resume.getPersonalDetails();
+            if (entity == null) {
+                entity = new com.project.resumeTracker.entity.PersonalDetails();
+            }
+            entity.setName(pdDto.getName());
+            entity.setEmail(pdDto.getEmail());
+            entity.setPhone(pdDto.getPhone());
+            entity.setAddress(pdDto.getAddress());
+            entity.setLinkedinUrl(pdDto.getLinkedinUrl());
+            entity.setGithubUrl(pdDto.getGithubUrl());
+            entity.setPortfolioUrl(pdDto.getPortfolioUrl());
+            entity.setSummary(pdDto.getSummary());
+            resume.setPersonalDetails(entity);
+        }
+
+        // --- Collections ---
+        resume.getWorkExperiences().clear();
+        if (updateDTO.getWorkExperiences() != null) {
+            for (WorkExperienceDTO weDto : updateDTO.getWorkExperiences()) {
+                WorkExperience we = new WorkExperience();
+                we.setJobTitle(weDto.getJobTitle());
+                we.setCompanyName(weDto.getCompanyName());
+                we.setLocation(weDto.getLocation());
+                we.setStartDate(weDto.getStartDate());
+                we.setEndDate(weDto.getEndDate());
+                we.setCurrentJob(Boolean.TRUE.equals(weDto.getCurrentJob()));
+                we.setDescription(weDto.getDescription());
+                resume.addWorkExperience(we);
+            }
+        }
+
+        resume.getEducations().clear();
+        if (updateDTO.getEducations() != null) {
+            for (EducationDTO edDto : updateDTO.getEducations()) {
+                Education ed = new Education();
+                ed.setInstitutionName(edDto.getInstitutionName());
+                ed.setDegree(edDto.getDegree());
+                ed.setFieldOfStudy(edDto.getFieldOfStudy());
+                ed.setStartDate(edDto.getStartDate());
+                ed.setEndDate(edDto.getEndDate());
+                ed.setGrade(edDto.getGrade());
+                ed.setDescription(edDto.getDescription());
+                resume.addEducation(ed);
+            }
+        }
+
+        resume.getSkills().clear();
+        if (updateDTO.getSkills() != null) {
+            for (SkillDTO sDto : updateDTO.getSkills()) {
+                Skill skill = new Skill();
+                skill.setSkillName(sDto.getSkillName());
+                skill.setProficiencyLevel(sDto.getProficiencyLevel());
+                resume.addSkill(skill);
+            }
+        }
+
+        resume.getProjects().clear();
+        if (updateDTO.getProjects() != null) {
+            for (Project pDto : updateDTO.getProjects()) {
+                com.project.resumeTracker.entity.Project p = new com.project.resumeTracker.entity.Project();
+                p.setName(pDto.getName());
+                p.setTechStack(pDto.getTechStack());
+                p.setDate(pDto.getDate());
+                p.setAchievements(pDto.getAchievements());
+                resume.addProject(p);
+            }
+        }
+
+        resume.getCertificates().clear();
+        if (updateDTO.getCertificates() != null) {
+            for (Certificate cDto : updateDTO.getCertificates()) {
+                com.project.resumeTracker.entity.Certificate c = new com.project.resumeTracker.entity.Certificate();
+                c.setName(cDto.getName());
+                if (cDto.getDate() != null && !cDto.getDate().isEmpty()) {
+                    c.setDate(java.time.LocalDate.parse(cDto.getDate()));
+                }
+                c.setInstitution(cDto.getInstitution());
+                c.setUrl(cDto.getUrl());
+                resume.addCertificate(c);
+            }
+        }
+
+        resumeRepository.save(resume);
+        log.info("Saved updated resume {}. Regenerating LaTeX/PDF", resumeId);
+        try {
+            generateResumeContent(resume);
+        } catch (IOException e) {
+            log.error("Failed to regenerate content after update", e);
+            throw new RuntimeException("Failed to regenerate PDF after update", e);
+        }
+        return convertToResponseDTO(resume);
+    }
+
     private SkillDTO mapSkillToDTO(Skill skill) {
         if (skill == null) return null;
         return new SkillDTO(skill.getSkillName(), skill.getProficiencyLevel());
+    }
+
+    private Certificate mapCertificateToDTO(com.project.resumeTracker.entity.Certificate certEntity) {
+        if (certEntity == null) return null;
+        Certificate dto = new Certificate();
+        dto.setName(certEntity.getName());
+        dto.setDate(certEntity.getDate() != null ? certEntity.getDate().toString() : null);
+        dto.setInstitution(certEntity.getInstitution());
+        dto.setUrl(certEntity.getUrl());
+        return dto;
     }
 
 

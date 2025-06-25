@@ -32,35 +32,97 @@ const ResumeDisplay = ({ resume }) => {
   const [scale, setScale] = useState(1.2);
 
   const fetchAndSetFile = useCallback(async () => {
-    if (resume && resume.id) {
-      setIsLoading(true);
-      setFileUrl(null);
-      setFileType('');
-      setPageNumber(1);
-      setNumPages(null);
+    if (!resume || !resume.id) return;
 
+    const checkStatusAndMaybeDownload = async () => {
+      try {
+        const statusResp = await axiosInstance.get(`/resumes/${resume.id}/status`, { validateStatus: () => true });
+        const statusCode = statusResp.status;
+
+        if (statusCode === 202 || statusCode === 404) {
+          // still processing – try again after retry-after if provided
+          const retryAfter = parseInt(statusResp.headers['retry-after'] || '3', 10) * 1000;
+          setTimeout(checkStatusAndMaybeDownload, retryAfter);
+          return;
+        }
+
+        if (statusCode === 409) {
+          const msg = statusResp.data?.message || 'PDF generation failed.';
+          toast.error(msg);
+          setIsLoading(false);
+          return;
+        }
+        // 200 OK – ready to download
+        await downloadPdf();
+      } catch (err) {
+        console.error('Status check failed', err);
+        toast.error('Could not check resume status.');
+        setIsLoading(false);
+      }
+    };
+
+    const downloadPdf = async () => {
+      let stillProcessing = false; // flag to keep loader active while 202 responses arrive
       try {
         const response = await axiosInstance.get(`/resumes/${resume.id}/download`, {
           responseType: 'blob',
+          timeout: 60000,
         });
 
-        const blob = new Blob([response.data], { type: resume.mimeType });
+        // If backend still processing it may return 202 even though axios treats it as success
+        if (response.status === 202) {
+          stillProcessing = true;
+          const retryAfter = parseInt(response.headers['retry-after'] || '3', 10) * 1000;
+          setTimeout(checkStatusAndMaybeDownload, retryAfter);
+          return;
+        }
+
+        const mime = response.headers['content-type'] || resume.mimeType || 'application/pdf';
+        const blob = new Blob([response.data], { type: mime });
         const url = URL.createObjectURL(blob);
 
         setFileUrl(url);
-        setFileType(resume.mimeType);
+        setFileType(mime);
 
-        if (resume.mimeType.includes('word') && docxContainerRef.current) {
+        if (mime.includes('word') && docxContainerRef.current) {
           docxContainerRef.current.innerHTML = '';
           await renderAsync(blob, docxContainerRef.current);
         }
       } catch (error) {
-        console.error('Error fetching resume file:', error);
+        if (error.response) {
+          const status = error.response.status;
+          if (status === 202) {
+                stillProcessing = true;
+            // PDF still processing; restart polling
+            const retryAfter = parseInt(error.response.headers['retry-after'] || '3', 10) * 1000;
+            setTimeout(checkStatusAndMaybeDownload, retryAfter);
+            return;
+          }
+          if (status === 409) {
+            const msg = error.response.data?.message || 'PDF generation failed.';
+            toast.error(msg);
+            setIsLoading(false);
+            return;
+          }
+        }
+        console.error('Error downloading resume file:', error);
         toast.error('Could not load resume preview.');
       } finally {
-        setIsLoading(false);
+        if (!stillProcessing) {
+          setIsLoading(false);
+        }
       }
-    }
+    };
+
+    // start flow
+    setIsLoading(true);
+    setFileUrl(null);
+    setFileType('');
+    setPageNumber(1);
+    setNumPages(null);
+
+    // First attempt to download (this will trigger compilation if PDF not ready)
+    await downloadPdf();
   }, [resume]);
 
   useEffect(() => {

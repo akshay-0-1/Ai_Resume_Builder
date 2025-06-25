@@ -64,6 +64,9 @@ public class Resume {
     @Column(name = "parsing_status", length = 20)
     private String parsingStatus = "pending";
 
+    @Column(name = "error_message", columnDefinition = "TEXT")
+    private String errorMessage;
+
     @OneToOne(mappedBy = "resume", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private PersonalDetails personalDetails;
 

@@ -9,6 +9,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import com.project.resumeTracker.dto.Project;
+import com.project.resumeTracker.dto.Certificate;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -27,6 +30,8 @@ public class ResumeResponseDTO {
     private List<WorkExperienceDTO> workExperiences;
     private List<EducationDTO> educations;
     private List<SkillDTO> skills;
+    private List<Project> projects; // New for edit functionality
+    private List<Certificate> certificates; // New for edit functionality
 
     // Constructor for basic info (before parsing)
     public ResumeResponseDTO(UUID id, String originalFilename, Long fileSize, String mimeType, LocalDateTime uploadDate, String parsingStatus) {
