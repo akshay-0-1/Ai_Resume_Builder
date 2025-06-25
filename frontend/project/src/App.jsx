@@ -11,6 +11,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const PricingPage = lazy(() => import('./pages/PricingPage'));
 const History = lazy(() => import('./pages/History'));
+const EditResumePage = lazy(() => import('./pages/EditResumePage'));
 import { resumeService } from './api/resumeService';
 import ResumeUploader from './components/dashboard/ResumeUploader';
 import JobDescriptionInput from './components/dashboard/JobDescriptionInput';
@@ -72,6 +73,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <History />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/edit-resume/:id" 
+                  element={
+                    <ProtectedRoute>
+                      <EditResumePage />
                     </ProtectedRoute>
                   } 
                 />

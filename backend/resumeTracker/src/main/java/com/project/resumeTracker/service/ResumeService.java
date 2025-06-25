@@ -386,9 +386,10 @@ public class ResumeService {
         }
 
         // --- Collections ---
-        resume.getWorkExperiences().clear();
-        if (updateDTO.getWorkExperiences() != null) {
-            for (WorkExperienceDTO weDto : updateDTO.getWorkExperiences()) {
+        List<WorkExperienceDTO> weDtos = updateDTO.getWorkExperiences();
+        if (weDtos != null && !weDtos.isEmpty()) {
+            resume.getWorkExperiences().clear();
+            for (WorkExperienceDTO weDto : weDtos) {
                 WorkExperience we = new WorkExperience();
                 we.setJobTitle(weDto.getJobTitle());
                 we.setCompanyName(weDto.getCompanyName());
@@ -401,9 +402,10 @@ public class ResumeService {
             }
         }
 
-        resume.getEducations().clear();
-        if (updateDTO.getEducations() != null) {
-            for (EducationDTO edDto : updateDTO.getEducations()) {
+        List<EducationDTO> edDtos = updateDTO.getEducations();
+        if (edDtos != null && !edDtos.isEmpty()) {
+            resume.getEducations().clear();
+            for (EducationDTO edDto : edDtos) {
                 Education ed = new Education();
                 ed.setInstitutionName(edDto.getInstitutionName());
                 ed.setDegree(edDto.getDegree());
@@ -416,9 +418,10 @@ public class ResumeService {
             }
         }
 
-        resume.getSkills().clear();
-        if (updateDTO.getSkills() != null) {
-            for (SkillDTO sDto : updateDTO.getSkills()) {
+        List<SkillDTO> skillDtos = updateDTO.getSkills();
+        if (skillDtos != null && !skillDtos.isEmpty()) {
+            resume.getSkills().clear();
+            for (SkillDTO sDto : skillDtos) {
                 Skill skill = new Skill();
                 skill.setSkillName(sDto.getSkillName());
                 skill.setProficiencyLevel(sDto.getProficiencyLevel());
@@ -426,9 +429,10 @@ public class ResumeService {
             }
         }
 
-        resume.getProjects().clear();
-        if (updateDTO.getProjects() != null) {
-            for (Project pDto : updateDTO.getProjects()) {
+        List<Project> projDtos = updateDTO.getProjects();
+        if (projDtos != null && !projDtos.isEmpty()) {
+            resume.getProjects().clear();
+            for (Project pDto : projDtos) {
                 com.project.resumeTracker.entity.Project p = new com.project.resumeTracker.entity.Project();
                 p.setName(pDto.getName());
                 p.setTechStack(pDto.getTechStack());
@@ -438,9 +442,10 @@ public class ResumeService {
             }
         }
 
-        resume.getCertificates().clear();
-        if (updateDTO.getCertificates() != null) {
-            for (Certificate cDto : updateDTO.getCertificates()) {
+        List<Certificate> certDtos = updateDTO.getCertificates();
+        if (certDtos != null && !certDtos.isEmpty()) {
+            resume.getCertificates().clear();
+            for (Certificate cDto : certDtos) {
                 com.project.resumeTracker.entity.Certificate c = new com.project.resumeTracker.entity.Certificate();
                 c.setName(cDto.getName());
                 if (cDto.getDate() != null && !cDto.getDate().isEmpty()) {

@@ -187,6 +187,16 @@ public class ResumeController {
             
             ResumeResponseDTO resume = resumeService.getResumeById(resumeId, userId);
 
+            String status = resume.getParsingStatus() != null ? resume.getParsingStatus().toUpperCase() : "";
+            if (!"PDF_GENERATED".equals(status) && !"COMPLETED".equals(status)) {
+                return ResponseEntity.status(HttpStatus.ACCEPTED)
+                        .header(HttpHeaders.RETRY_AFTER, "3")
+                        .body(ApiResponse.success("Resume is still processing", resume));
+            }
+            if ("FAILED".equals(status)) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(ApiResponse.error("Resume parsing failed", "LaTeX/Parsing failed for this resume"));
+            }
             return ResponseEntity.ok(ApiResponse.success("Resume retrieved", resume));
 
         } catch (RuntimeException e) {

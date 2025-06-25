@@ -16,7 +16,7 @@ import { resumeService } from '../../api/resumeService';
 // PDF.js worker setup
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
-const ResumeDisplay = ({ resume }) => {
+const ResumeDisplay = ({ resume, showEditButton = true, refreshKey }) => {
   const [fileUrl, setFileUrl] = useState(null);
   const [fileType, setFileType] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -123,7 +123,7 @@ const ResumeDisplay = ({ resume }) => {
 
     // First attempt to download (this will trigger compilation if PDF not ready)
     await downloadPdf();
-  }, [resume]);
+  }, [resume, refreshKey]);
 
   useEffect(() => {
     if (!isEditing) {
@@ -137,7 +137,13 @@ const ResumeDisplay = ({ resume }) => {
     };
   }, [resume, isEditing, fetchAndSetFile]);
 
-  const handleEditClick = async () => {
+  const handleEditClick = () => {
+    if (!showEditButton) return; // safety
+    if (!resume || !resume.id) return;
+    window.open(`/edit-resume/${resume.id}`, '_blank');
+  };
+
+  const handleStartEditing = async () => {
     if (!resume || !resume.id) return;
     setIsLoading(true);
     try {
@@ -287,6 +293,7 @@ const ResumeDisplay = ({ resume }) => {
   };
 
   const renderHeaderButtons = () => {
+    if (!showEditButton) return null;
     if (isEditing) {
       return (
         <div className="flex items-center space-x-2">
