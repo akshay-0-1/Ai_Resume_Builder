@@ -31,11 +31,8 @@ export const ToastProvider = ({ children }) => (
       closeOnClick
       pauseOnHover
       draggable
-      toastStyle={(toast) => ({
-        ...toastStyles[toast.type],
-        borderRadius: '8px',
-        padding: '12px 20px',
-      })}
+      className="rounded-lg p-3"
+      toastClassName={(toast) => `rounded-lg p-3 ${toastStyles[toast.type].backgroundColor} text-white`}
     />
   </>
 );

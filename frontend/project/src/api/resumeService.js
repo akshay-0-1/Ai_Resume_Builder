@@ -59,7 +59,7 @@ export const resumeService = {
 
   getAnalysisHistory: async () => {
     try {
-      const response = await axiosInstance.get('/resumes/history');
+      const response = await axiosInstance.get('/resumes/analysis/history');
       return handleApiResponse(response);
     } catch (error) {
       return handleApiError(error);

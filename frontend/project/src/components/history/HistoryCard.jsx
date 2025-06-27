@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Eye, Edit } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const HistoryCard = ({ analysis }) => {
@@ -8,10 +8,6 @@ const HistoryCard = ({ analysis }) => {
   
   const handleViewResume = () => {
     navigate(`/resumes/${analysis.resumeId}`);
-  };
-
-  const handleEditResume = () => {
-    navigate(`/edit-resume/${analysis.resumeId}`);
   };
     if (!analysis) {
         return null;
@@ -33,20 +29,13 @@ const HistoryCard = ({ analysis }) => {
                       Analyzed on: {new Date(analysis.createdAt).toLocaleString()}
                     </div>
                 </div>
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center">
                     <button
                       onClick={handleViewResume}
                       className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
                       title="View Resume"
                     >
                       <Eye className="w-5 h-5 text-gray-600 hover:text-gray-800" />
-                    </button>
-                    <button
-                      onClick={handleEditResume}
-                      className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                      title="Edit Resume"
-                    >
-                      <Edit className="w-5 h-5 text-gray-600 hover:text-gray-800" />
                     </button>
                     <span 
                       className={`px-3 py-1 text-sm font-semibold rounded-full ${analysis.jobScore > 75 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
