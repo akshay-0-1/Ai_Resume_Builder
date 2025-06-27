@@ -26,7 +26,15 @@ const HistoryCard = ({ analysis }) => {
                       {analysis.resumeFilename}
                     </h3>
                     <div className="mt-2 text-sm text-gray-500">
-                      Analyzed on: {new Date(analysis.createdAt).toLocaleString()}
+                      {analysis.createdAt ? `Analyzed on: ${new Date(analysis.createdAt[0], analysis.createdAt[1] - 1, analysis.createdAt[2], analysis.createdAt[3], analysis.createdAt[4], analysis.createdAt[5]).toLocaleString('en-US', { 
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: true
+                      })}` : 'Analyzed on: N/A'}
                     </div>
                 </div>
                 <div className="flex items-center">

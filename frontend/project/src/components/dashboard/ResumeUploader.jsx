@@ -140,11 +140,16 @@ const ResumeUploader = () => {
                 <div className="flex items-center space-x-3">
                   {getFileIcon(resume.fileType)} 
                   <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {resume.originalFilename}
-                    </p>
                     <p className="text-xs text-gray-500">
-                      {formatFileSize(resume.fileSize)} • {resume.uploadDate ? new Date(resume.uploadDate).toLocaleDateString() : ''}
+                      {formatFileSize(resume.fileSize)} • {resume.uploadDate ? new Date(resume.uploadDate[0], resume.uploadDate[1] - 1, resume.uploadDate[2], resume.uploadDate[3], resume.uploadDate[4], resume.uploadDate[5]).toLocaleString('en-US', { 
+                         year: 'numeric',
+                         month: '2-digit',
+                         day: '2-digit',
+                         hour: '2-digit',
+                         minute: '2-digit',
+                         second: '2-digit',
+                         hour12: true
+                       }) : ''}
                     </p>
                   </div>
                 </div>
