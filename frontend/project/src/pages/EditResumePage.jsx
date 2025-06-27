@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { Formik, Field } from 'formik';
 import * as Yup from 'yup';
-import { toast } from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import axiosInstance from '../api/axiosConfig';
 import Button from '../components/common/Button';
 import Spinner from '../components/common/Spinner';

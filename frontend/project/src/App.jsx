@@ -1,6 +1,6 @@
 import React, { useState, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
+import Layout from './components/layout/Layout';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
@@ -52,7 +52,7 @@ function App() {
   return (
     <AuthProvider>
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <div className="App">
+           <Layout>
             <Suspense fallback={<div className="w-full h-screen flex justify-center items-center"><Spinner /></div>}>
               <Routes>
                 <Route path="/" element={<LandingPage />} />
@@ -122,36 +122,7 @@ function App() {
                 />
               </Routes>
             </Suspense>
-            
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: '#1f2937',
-                  color: '#f9fafb',
-                  borderRadius: '12px',
-                  padding: '16px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                },
-                success: {
-                  duration: 3000,
-                  iconTheme: {
-                    primary: '#10b981',
-                    secondary: '#f9fafb',
-                  },
-                },
-                error: {
-                  duration: 4000,
-                  iconTheme: {
-                    primary: '#ef4444',
-                    secondary: '#f9fafb',
-                  },
-                },
-              }}
-            />
-          </div>
+          </Layout>
         </Router>
     </AuthProvider>
   );

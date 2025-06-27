@@ -79,12 +79,12 @@ public class JobAnalysisServiceImpl implements JobAnalysisService {
     private String buildAnalysisPrompt(String resumeText, String jobDescription) {
         return String.format(
             "Analyze the following resume against the provided job description and return your analysis in a strict JSON format. "
-            + "The JSON object must have three keys: 'jobScore' (an integer from 0 to 100), 'targetedChanges' (a JSON array of objects, where each object has 'section' and 'suggestion' keys for specific, actionable changes), and 'overallImprovements' (a JSON array of strings for general feedback)."
+            + "The JSON object must have three keys: 'jobScore' (an integer from 0 to 100), 'targetedChanges' (a JSON array of objects, where each object has 'section' and 'suggestion' keys for specific, actionable changes), and 'overallImprovements' (a JSON array of strings for general feedback), and 'keywords' (an object with two arrays: 'matchedKeywords' and 'missingKeywords' listing important terms from the JD that are present or absent in the resume)."
             + "'section' should indicate the part of the resume to change (e.g., 'Summary', 'Skills', 'Project Experience')."
             + "'suggestion' should be a concrete instruction, like 'Change project description to...' or 'Add the skill...'."
-            + "Do not include any text or formatting outside of the JSON object itself.\n\n"
-            + "Resume Text:\n%s\n\n"
-            + "Job Description:\n%s",
+            + "Focus on precision and brevity. Do not include any text or formatting outside of the JSON object itself.\n\n"
+            
+            + "Resume Text:\n%s\n\nJob Description:\n%s",
             resumeText, jobDescription
         );
     }
@@ -117,7 +117,26 @@ public class JobAnalysisServiceImpl implements JobAnalysisService {
             }
         }
 
-        return new JobAnalysisResponseDTO(score, targetedChanges, overallImprovements);
+        // keywords
+        List<String> matchedKeywords = new ArrayList<>();
+        List<String> missingKeywords = new ArrayList<>();
+        JsonNode keywordsNode = rootNode.path("keywords");
+        if (keywordsNode.isObject()) {
+            JsonNode matchNode = keywordsNode.path("matchedKeywords");
+            if (matchNode.isArray()) {
+                for (JsonNode kw : matchNode) {
+                    matchedKeywords.add(kw.asText());
+                }
+            }
+            JsonNode missNode = keywordsNode.path("missingKeywords");
+            if (missNode.isArray()) {
+                for (JsonNode kw : missNode) {
+                    missingKeywords.add(kw.asText());
+                }
+            }
+        }
+
+        return new JobAnalysisResponseDTO(score, targetedChanges, overallImprovements, matchedKeywords, missingKeywords);
     }
 
     private void saveAnalysisToHistory(Long userId, Resume resume, String jobDescription, JobAnalysisResponseDTO responseDto) {

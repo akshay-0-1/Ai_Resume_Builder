@@ -9,7 +9,7 @@ import 'react-pdf/dist/esm/Page/TextLayer.css';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import { Download, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Loader2, Edit, Save, XCircle } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import axiosInstance from '../../api/axiosConfig';
 import { resumeService } from '../../api/resumeService';
 

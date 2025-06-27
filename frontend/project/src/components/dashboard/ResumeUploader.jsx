@@ -1,11 +1,14 @@
 import React, { useCallback, useState } from 'react';
 import { useAnalysis } from '../../context/AnalysisContext';
-import { Upload, FileText, Trash2, Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Upload, FileText, Trash2, Eye, Edit } from 'lucide-react';
+import ResumeDisplay from './ResumeDisplay';
 import Button from '../common/Button';
 import Card from '../common/Card';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 
 const ResumeUploader = () => {
+  const navigate = useNavigate();
   const { resumes, selectedResume, selectResume, uploadResume } = useAnalysis();
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -157,11 +160,20 @@ const ResumeUploader = () => {
                     size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
-                      // Handle preview
-                      toast('Preview functionality will be implemented');
+                      window.open(`/resumes/${resume.id}`, '_blank');
                     }}
                   >
                     <Eye className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(`/edit-resume/${resume.id}`, '_blank');
+                    }}
+                  >
+                    <Edit className="w-4 h-4" />
                   </Button>
                 </div>
               </div>

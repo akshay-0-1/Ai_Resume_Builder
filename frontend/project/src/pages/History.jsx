@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { resumeService } from '../api/resumeService';
 import HistoryCard from '../components/history/HistoryCard';
 import { motion } from 'framer-motion';
-import Navbar from '../components/layout/Navbar';
+
 
 const History = () => {
     const [history, setHistory] = useState([]);
@@ -38,7 +38,7 @@ const History = () => {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <Navbar />
+      
             <motion.div 
                 className="container mx-auto p-4 md:p-8"
                 initial={{ opacity: 0, y: 20 }}

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
 
-const Button = ({ 
+const Button = React.forwardRef(({ 
   children, 
   variant = 'primary', 
   size = 'md', 
@@ -9,7 +9,7 @@ const Button = ({
   disabled = false, 
   className = '', 
   ...props 
-}) => {
+}, ref) => {
   const baseClasses = 'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]';
   
   const variants = {
@@ -32,6 +32,7 @@ const Button = ({
   
   return (
     <button 
+      ref={ref}
       className={classes} 
       disabled={disabled || isLoading}
       {...props}
@@ -40,6 +41,6 @@ const Button = ({
       {children}
     </button>
   );
-};
+});
 
 export default Button;

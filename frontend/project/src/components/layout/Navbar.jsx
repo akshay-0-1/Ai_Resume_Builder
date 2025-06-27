@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { LogOut, User, FileText, Menu, X, Sparkles } from 'lucide-react';
+import ThemeToggle from '../common/ThemeToggle';
 import Button from '../common/Button';
 
 const Navbar = () => {
@@ -60,6 +61,7 @@ const Navbar = () => {
             })}
           </div>
           
+          <ThemeToggle className="hidden md:inline-flex mr-4" />
           {/* Desktop Auth Section */}
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated ? (

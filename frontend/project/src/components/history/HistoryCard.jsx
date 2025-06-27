@@ -1,7 +1,18 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Eye, Edit } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const HistoryCard = ({ analysis }) => {
+  const navigate = useNavigate();
+  
+  const handleViewResume = () => {
+    navigate(`/resumes/${analysis.resumeId}`);
+  };
+
+  const handleEditResume = () => {
+    navigate(`/edit-resume/${analysis.resumeId}`);
+  };
     if (!analysis) {
         return null;
     }
@@ -14,16 +25,34 @@ const HistoryCard = ({ analysis }) => {
             transition={{ duration: 0.3 }}
         >
             <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-800 truncate" title={analysis.resumeFilename}>
-                    {analysis.resumeFilename}
-                </h3>
-                <span 
-                    className={`px-3 py-1 text-sm font-semibold rounded-full ${analysis.jobScore > 75 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                    Score: {analysis.jobScore}
-                </span>
-            </div>
-            <div className="mt-2 text-sm text-gray-500">
-                Analyzed on: {new Date(analysis.createdAt).toLocaleString()}
+                <div className="flex flex-col">
+                    <h3 className="text-lg font-semibold text-gray-800 truncate" title={analysis.resumeFilename}>
+                      {analysis.resumeFilename}
+                    </h3>
+                    <div className="mt-2 text-sm text-gray-500">
+                      Analyzed on: {new Date(analysis.createdAt).toLocaleString()}
+                    </div>
+                </div>
+                <div className="flex items-center space-x-4">
+                    <button
+                      onClick={handleViewResume}
+                      className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                      title="View Resume"
+                    >
+                      <Eye className="w-5 h-5 text-gray-600 hover:text-gray-800" />
+                    </button>
+                    <button
+                      onClick={handleEditResume}
+                      className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                      title="Edit Resume"
+                    >
+                      <Edit className="w-5 h-5 text-gray-600 hover:text-gray-800" />
+                    </button>
+                    <span 
+                      className={`px-3 py-1 text-sm font-semibold rounded-full ${analysis.jobScore > 75 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                      Score: {analysis.jobScore}
+                    </span>
+                </div>
             </div>
         </motion.div>
     );

@@ -1,11 +1,13 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       fontFamily: {
         'sans': ['Inter', 'system-ui', 'sans-serif'],
         'display': ['Poppins', 'system-ui', 'sans-serif'],
+        'mono': ['"JetBrains Mono"', 'monospace'],
       },
       colors: {
         primary: {
@@ -46,7 +48,10 @@ export default {
           800: '#065f46',
           900: '#064e3b',
           950: '#022c22',
-        }
+        },
+        success: '#10b981',
+        warning: '#f59e0b',
+        danger: '#ef4444',
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in-out',

@@ -1,5 +1,5 @@
 import React from 'react';
-import Navbar from '../components/layout/Navbar';
+
 import Hero from '../components/pricing/Hero';
 import PricingCards from '../components/pricing/PricingCards';
 import Features from '../components/pricing/Features';
@@ -9,7 +9,7 @@ import CTA from '../components/pricing/CTA';
 const PricingPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
-      <Navbar />
+      
       <Hero />
       <PricingCards />
       <Features />

@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { User, Lock, Mail, FileText } from 'lucide-react';
 import Button from '../common/Button';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 
 const SignupForm = () => {
   const [formData, setFormData] = useState({

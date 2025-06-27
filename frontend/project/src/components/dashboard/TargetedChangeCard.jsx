@@ -1,7 +1,7 @@
 import React from 'react';
 import { Copy, CheckCircle } from 'lucide-react';
 import Card from '../common/Card';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 
 const TargetedChangeCard = ({ section, suggestion }) => {
   const handleCopy = async () => {

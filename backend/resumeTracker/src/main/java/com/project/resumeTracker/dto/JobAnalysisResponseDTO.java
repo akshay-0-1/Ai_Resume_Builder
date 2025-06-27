@@ -13,4 +13,6 @@ public class JobAnalysisResponseDTO {
     private int jobScore;
     private List<TargetedChangeDTO> targetedChanges;
     private List<String> overallImprovements;
+    private List<String> matchedKeywords;
+    private List<String> missingKeywords;
 }
