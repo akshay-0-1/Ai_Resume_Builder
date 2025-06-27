@@ -20,7 +20,8 @@ export const AnalysisProvider = ({ children }) => {
     isAnalyzing: false,
     isUploading: false,
     resumeContent: '',
-    isLoading: true
+    isLoading: true,
+    error: null
   };
 
   const [state, setState] = useState(initialState);
@@ -71,67 +72,64 @@ export const AnalysisProvider = ({ children }) => {
   }, []); // Empty dependency array means this runs once on mount
 
   const uploadResume = async (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    setState(prev => ({ ...prev, isUploading: true }));
     try {
+      if (!file) throw new Error('No file provided');
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      setState(prev => ({ ...prev, isUploading: true }));
+      
       const result = await resumeService.uploadResume(formData);
-      if (result.success) {
-        const newResume = result.data;
-        setState(prev => ({
-          ...prev,
-          resumes: Array.isArray(prev.resumes) ? [...prev.resumes, newResume] : [newResume],
-          selectedResume: newResume,
-          analysisResult: null,
-          resumeContent: newResume.rawText || '',
-        }));
-        return { success: true, data: newResume };
-      } else {
+      if (!result.success) {
         throw new Error(result.error || 'Upload failed');
       }
+
+      const newResume = result.data;
+      setState(prev => ({
+        ...prev,
+        resumes: [...prev.resumes, newResume],
+        selectedResume: newResume,
+        analysisResult: null,
+        resumeContent: newResume.rawText || '',
+        error: null
+      }));
+      
+      return { success: true, data: newResume };
     } catch (error) {
       console.error('Upload failed:', error);
-      throw error; // Re-throw for the component to handle
+      setState(prev => ({ ...prev, error: error.message, isUploading: false }));
+      throw error;
     } finally {
-      setState(prev => ({ ...prev, isUploading: false }));
+      if (!state.isUploading) {
+        setState(prev => ({ ...prev, isUploading: false }));
+      }
     }
   };
 
   const selectResume = async (resume) => {
-    console.log('Attempting to select resume:', resume);
-    if (!resume || !resume.id) {
-      console.error('selectResume called with invalid resume object');
-      return;
-    }
+    if (!resume?.id) return;
 
     if (selectedResume?.id === resume.id) return;
 
-    // Update selected resume and clear analysis
-    setState(prev => ({
-      ...prev,
-      selectedResume: resume,
-      analysisResult: null
-    }));
+    try {
+      setState(prev => ({
+        ...prev,
+        selectedResume: resume,
+        analysisResult: null,
+        error: null
+      }));
 
-    // If resume already has content, use it immediately
-    if (resume.resumeContent) {
-      setState(prev => ({ ...prev, resumeContent: resume.resumeContent }));
-    } else {
-      // Otherwise fetch it from the backend
-      try {
-        console.log(`Fetching full details for resume ID: ${resume.id}`);
+      if (!resume.resumeContent) {
         const result = await resumeService.getResume(resume.id);
-        if (result.success && result.data.success) {
-          setState(prev => ({ ...prev, resumeContent: result.data.data.resumeContent }));
-        } else {
-          toast.error('Could not load resume content.');
-          console.error('Failed to load resume content:', result.data?.message || result.error);
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to load resume content');
         }
-      } catch (error) {
-        toast.error('Failed to fetch resume details.');
-        console.error('Error fetching resume details:', error);
+        setState(prev => ({ ...prev, resumeContent: result.data.resumeContent }));
       }
+    } catch (error) {
+      console.error('Failed to load resume:', error);
+      setState(prev => ({ ...prev, error: error.message }));
     }
   };
 

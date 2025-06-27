@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { renderAsync } from 'docx-preview';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
+import { allowedFileTypes } from '../../utils/constants';
 
 import Card from '../common/Card';
 import Button from '../common/Button';
@@ -34,50 +35,47 @@ const ResumeDisplay = ({ resume, showEditButton = true, refreshKey }) => {
   const fetchAndSetFile = useCallback(async () => {
     if (!resume || !resume.id) return;
 
-    const checkStatusAndMaybeDownload = async () => {
+    const handleRetry = async (retryAfter = 3000) => {
       try {
-        const statusResp = await axiosInstance.get(`/resumes/${resume.id}/status`, { validateStatus: () => true });
-        const statusCode = statusResp.status;
+        const response = await axiosInstance.get(`/resumes/${resume.id}/status`, { validateStatus: () => true });
+        const statusCode = response.status;
 
         if (statusCode === 202 || statusCode === 404) {
-          // still processing – try again after retry-after if provided
-          const retryAfter = parseInt(statusResp.headers['retry-after'] || '3', 10) * 1000;
-          setTimeout(checkStatusAndMaybeDownload, retryAfter);
+          setTimeout(() => handleRetry(), retryAfter);
           return;
         }
 
         if (statusCode === 409) {
-          const msg = statusResp.data?.message || 'PDF generation failed.';
-          toast.error(msg);
-          setIsLoading(false);
-          return;
+          throw new Error(response.data?.message || 'PDF generation failed.');
         }
-        // 200 OK – ready to download
-        await downloadPdf();
-      } catch (err) {
-        console.error('Status check failed', err);
-        toast.error('Could not check resume status.');
-        setIsLoading(false);
+
+        await downloadFile();
+      } catch (error) {
+        console.error('Status check failed:', error);
+        if (error.response?.status === 202) {
+          setTimeout(() => handleRetry(), retryAfter);
+        } else {
+          throw error;
+        }
       }
     };
 
-    const downloadPdf = async () => {
-      let stillProcessing = false; // flag to keep loader active while 202 responses arrive
+    const downloadFile = async () => {
       try {
         const response = await axiosInstance.get(`/resumes/${resume.id}/download`, {
           responseType: 'blob',
           timeout: 60000,
         });
 
-        // If backend still processing it may return 202 even though axios treats it as success
         if (response.status === 202) {
-          stillProcessing = true;
-          const retryAfter = parseInt(response.headers['retry-after'] || '3', 10) * 1000;
-          setTimeout(checkStatusAndMaybeDownload, retryAfter);
-          return;
+          throw new Error('Still processing');
         }
 
         const mime = response.headers['content-type'] || resume.mimeType || 'application/pdf';
+        if (!allowedFileTypes.includes(mime)) {
+          throw new Error('Unsupported file type');
+        }
+
         const blob = new Blob([response.data], { type: mime });
         const url = URL.createObjectURL(blob);
 
@@ -89,40 +87,23 @@ const ResumeDisplay = ({ resume, showEditButton = true, refreshKey }) => {
           await renderAsync(blob, docxContainerRef.current);
         }
       } catch (error) {
-        if (error.response) {
-          const status = error.response.status;
-          if (status === 202) {
-                stillProcessing = true;
-            // PDF still processing; restart polling
-            const retryAfter = parseInt(error.response.headers['retry-after'] || '3', 10) * 1000;
-            setTimeout(checkStatusAndMaybeDownload, retryAfter);
-            return;
-          }
-          if (status === 409) {
-            const msg = error.response.data?.message || 'PDF generation failed.';
-            toast.error(msg);
-            setIsLoading(false);
-            return;
-          }
-        }
-        console.error('Error downloading resume file:', error);
-        toast.error('Could not load resume preview.');
-      } finally {
-        if (!stillProcessing) {
-          setIsLoading(false);
-        }
+        console.error('Error downloading resume:', error);
+        toast.error(error.message || 'Could not load resume preview.');
+        throw error;
       }
     };
 
-    // start flow
     setIsLoading(true);
     setFileUrl(null);
     setFileType('');
     setPageNumber(1);
     setNumPages(null);
 
-    // First attempt to download (this will trigger compilation if PDF not ready)
-    await downloadPdf();
+    try {
+      await handleRetry();
+    } catch (error) {
+      setIsLoading(false);
+    }
   }, [resume, refreshKey]);
 
   useEffect(() => {
@@ -169,33 +150,31 @@ const ResumeDisplay = ({ resume, showEditButton = true, refreshKey }) => {
     setEditorContent('');
   };
 
-  const handleSaveClick = async () => {
-    if (!editorContent.trim()) {
-      toast.error('Resume content cannot be empty.');
-      return;
-    }
-    setIsSaving(true);
-    try {
-      // The backend controller expects a JSON object with the key 'htmlContent'.
-      // axiosInstance will automatically set the Content-Type to application/json.
-      const response = await axiosInstance.put(`/resumes/${resume.id}/content`, {
-        htmlContent: editorContent
-      });
+  const handleSaveClick = useCallback(async () => {
+  if (!editorContent.trim()) {
+    toast.error('Resume content cannot be empty.');
+    return;
+  }
 
-      if (response.data && response.data.success) {
-        toast.success('Resume updated successfully!');
-        setIsEditing(false); // This triggers the useEffect to refetch the preview
-      } else {
-        throw new Error(response.data.error || 'An unknown error occurred during save.');
-      }
-    } catch (error) {
-      console.error('--- Save Operation Failed: Full Error Object ---', error);
-      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Network error or server is down.';
-      toast.error(`Save failed: ${errorMessage}`);
-    } finally {
-      setIsSaving(false);
+  setIsSaving(true);
+  try {
+    const response = await axiosInstance.put(`/resumes/${resume.id}/content`, {
+      htmlContent: editorContent
+    });
+
+    if (!response.data?.success) {
+      throw new Error(response.data?.error || 'Save failed');
     }
-  };
+
+    toast.success('Resume updated successfully!');
+    setIsEditing(false);
+  } catch (error) {
+    console.error('Save failed:', error);
+    toast.error(error.response?.data?.message || 'Failed to save resume');
+  } finally {
+    setIsSaving(false);
+  }
+}, [editorContent, resume.id]);
 
   const handleDownload = () => {
     if (!resume || !fileUrl) return;

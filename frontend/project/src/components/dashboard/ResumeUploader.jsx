@@ -1,11 +1,11 @@
 import React, { useCallback, useState } from 'react';
 import { useAnalysis } from '../../context/AnalysisContext';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileText, Trash2, Eye, Edit } from 'lucide-react';
-import ResumeDisplay from './ResumeDisplay';
+import { Upload, FileText, Eye, Edit } from 'lucide-react';
 import Button from '../common/Button';
 import Card from '../common/Card';
 import { toast } from 'react-toastify';
+import { allowedFileTypes, maxSizeMB } from '../../utils/constants';
 
 const ResumeUploader = () => {
   const navigate = useNavigate();
@@ -18,15 +18,15 @@ const ResumeUploader = () => {
     if (!file) return;
 
     // Validate file type
-    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    if (!allowedTypes.includes(file.type)) {
+    if (!allowedFileTypes.includes(file.type)) {
       toast.error('Please upload a PDF, DOC, or DOCX file');
       return;
     }
 
-    // Validate file size (5MB limit)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB');
+    // Validate file size
+    const maxSize = maxSizeMB * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error(`File size must be less than ${maxSizeMB}MB`);
       return;
     }
 
@@ -58,24 +58,25 @@ const ResumeUploader = () => {
     setIsDragOver(false);
   }, []);
 
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files);
-    handleFileUpload(files);
-  };
+  const handleFileSelect = useCallback(
+    (e) => handleFileChange(Array.from(e.target.files)),
+    [handleFileChange]
+  );
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
-    const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const getFileIcon = (type) => {
-    if (type === 'application/pdf') {
-      return <FileText className="w-5 h-5 text-red-500" />;
-    }
-    return <FileText className="w-5 h-5 text-blue-500" />;
+    const iconProps = { className: 'w-5 h-5' };
+    return type === 'application/pdf' ? (
+      <FileText {...iconProps} className="text-red-500" />
+    ) : (
+      <FileText {...iconProps} className="text-blue-500" />
+    );
   };
 
   return (

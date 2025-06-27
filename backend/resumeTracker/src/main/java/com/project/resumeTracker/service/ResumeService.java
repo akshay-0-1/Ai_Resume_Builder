@@ -7,7 +7,6 @@ import com.project.resumeTracker.dto.ResumeResponseDTO;
 import com.project.resumeTracker.dto.SkillDTO;
 import com.project.resumeTracker.dto.WorkExperienceDTO;
 import com.project.resumeTracker.dto.ResumeUpdateDTO;
-import jakarta.transaction.Transactional;
 import com.project.resumeTracker.dto.Project;
 import com.project.resumeTracker.dto.Certificate;
 import com.project.resumeTracker.entity.Education;
@@ -16,6 +15,9 @@ import com.project.resumeTracker.entity.Resume;
 import com.project.resumeTracker.entity.Skill;
 import com.project.resumeTracker.entity.WorkExperience;
 import com.project.resumeTracker.repository.ResumeRepository;
+import com.project.resumeTracker.util.Constants;
+import com.project.resumeTracker.util.ResumeUtils;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Hibernate;
@@ -25,7 +27,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import com.project.resumeTracker.client.LatexApiClient;
@@ -46,13 +47,8 @@ public class ResumeService {
     private final LatexApiClient latexApiClient;
     private final ResumeProcessingTask processingTask;
 
-    private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    );
-
-    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    private static final Set<String> ALLOWED_MIME_TYPES = Constants.ALLOWED_MIME_TYPES;
+    private static final long MAX_FILE_SIZE = Constants.MAX_FILE_SIZE;
 
     /**
      * New async upload entry point. Saves the resume metadata immediately and returns, while heavy
@@ -86,7 +82,7 @@ public class ResumeService {
     @Transactional
     public void processResume(UUID resumeId) {
         Resume resume = resumeRepository.findById(resumeId)
-                .orElseThrow(() -> new RuntimeException("Resume not found"));
+                .orElseThrow(() -> new RuntimeException(Constants.ERROR_RESUME_NOT_FOUND));
         log.info("[ASYNC] Processing resume {} for user {}", resumeId, resume.getUserId());
         try {
             // Recreate MultipartFile for existing parsers
@@ -109,9 +105,9 @@ public class ResumeService {
 
     public ResumeStatusDTO getResumeStatus(UUID resumeId, Long userId) {
         Resume resume = resumeRepository.findById(resumeId)
-                .orElseThrow(() -> new RuntimeException("Resume not found"));
+                .orElseThrow(() -> new RuntimeException(Constants.ERROR_RESUME_NOT_FOUND));
         if (!resume.getUserId().equals(userId)) {
-            throw new SecurityException("Access denied");
+            throw new SecurityException(Constants.ERROR_ACCESS_DENIED);
         }
         return new ResumeStatusDTO(resume.getId(), resume.getParsingStatus(), resume.getErrorMessage());
     }
@@ -181,22 +177,22 @@ public class ResumeService {
 
     public ResumeResponseDTO getResumeById(UUID resumeId, Long userId) {
         Resume resume = resumeRepository.findById(resumeId)
-                .orElseThrow(() -> new RuntimeException("Resume not found."));
+                .orElseThrow(() -> new RuntimeException(Constants.ERROR_RESUME_NOT_FOUND));
 
         if (!resume.getUserId().equals(userId)) {
-            throw new SecurityException("Access denied.");
+            throw new SecurityException(Constants.ERROR_ACCESS_DENIED);
         }
         Hibernate.initialize(resume.getProjects());
-    Hibernate.initialize(resume.getCertificates());
-    return convertToResponseDTO(resume);
+        Hibernate.initialize(resume.getCertificates());
+        return convertToResponseDTO(resume);
     }
 
     public Resume getResumeFileById(UUID resumeId, Long userId) {
         Resume resume = resumeRepository.findById(resumeId)
-                .orElseThrow(() -> new RuntimeException("Resume not found."));
+                .orElseThrow(() -> new RuntimeException(Constants.ERROR_RESUME_NOT_FOUND));
 
         if (!resume.getUserId().equals(userId)) {
-            throw new SecurityException("Access denied.");
+            throw new SecurityException(Constants.ERROR_ACCESS_DENIED);
         }
 
         // If previous attempt failed, propagate the failure message
@@ -222,10 +218,10 @@ public class ResumeService {
 
     public void deleteResume(UUID resumeId, Long userId) {
         Resume resume = resumeRepository.findById(resumeId)
-                .orElseThrow(() -> new RuntimeException("Resume not found."));
+                .orElseThrow(() -> new RuntimeException(Constants.ERROR_RESUME_NOT_FOUND));
 
         if (!resume.getUserId().equals(userId)) {
-            throw new SecurityException("Access denied.");
+            throw new SecurityException(Constants.ERROR_ACCESS_DENIED);
         }
 
         resume.setIsActive(false);
@@ -279,13 +275,13 @@ public class ResumeService {
 
     private void validateFile(MultipartFile file) {
         if (file.isEmpty()) {
-            throw new IllegalArgumentException("File is empty");
+            throw new IllegalArgumentException(Constants.ERROR_FILE_EMPTY);
         }
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("File size exceeds maximum limit of 10MB");
+            throw new IllegalArgumentException(Constants.ERROR_FILE_TOO_LARGE);
         }
         if (!ALLOWED_MIME_TYPES.contains(file.getContentType())) {
-            throw new IllegalArgumentException("Invalid file type. Only PDF, DOC, and DOCX files are allowed");
+            throw new IllegalArgumentException(Constants.ERROR_INVALID_FILE_TYPE);
         }
     }
 
@@ -362,9 +358,9 @@ public class ResumeService {
     private ResumeResponseDTO updateResumeData(UUID resumeId, Long userId, ResumeUpdateDTO updateDTO) {
         log.info("Starting resume update for id: {} by user {}", resumeId, userId);
         Resume resume = resumeRepository.findById(resumeId)
-                .orElseThrow(() -> new RuntimeException("Resume not found."));
+                .orElseThrow(() -> new RuntimeException(Constants.ERROR_RESUME_NOT_FOUND));
         if (!resume.getUserId().equals(userId)) {
-            throw new SecurityException("Access denied.");
+            throw new SecurityException(Constants.ERROR_ACCESS_DENIED);
         }
 
         // --- Personal details ---
@@ -463,7 +459,7 @@ public class ResumeService {
             generateResumeContent(resume);
         } catch (IOException e) {
             log.error("Failed to regenerate content after update", e);
-            throw new RuntimeException("Failed to regenerate PDF after update", e);
+            throw new RuntimeException(Constants.ERROR_PDF_GENERATION_FAILED, e);
         }
         return convertToResponseDTO(resume);
     }

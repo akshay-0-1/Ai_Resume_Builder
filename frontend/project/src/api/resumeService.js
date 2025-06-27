@@ -1,20 +1,28 @@
 import axiosInstance from './axiosConfig';
 
-const handleApiError = (error) => {
+const API_TIMEOUT = 90000; // 90 seconds
+
+const handleApiError = (error, defaultMessage = 'API request failed') => {
+  const message = error?.response?.data?.message || 
+    error?.message || 
+    defaultMessage;
+  
   return {
     success: false,
-    error: error.response?.data?.message || 'API request failed'
+    error: message
   };
 };
 
-const handleApiResponse = (response) => {
-  if (response.data && response.data.success) {
-    return { success: true, data: response.data.data };
+const handleApiResponse = (response, successKey = 'success', dataKey = 'data') => {
+  if (!response?.data) {
+    return handleApiError(null, 'No response data received');
   }
-  return {
-    success: false,
-    error: response.data?.message || 'An unknown API error occurred'
-  };
+
+  if (response.data[successKey]) {
+    return { success: true, data: response.data[dataKey] };
+  }
+
+  return handleApiError(null, response.data?.message || 'Request failed');
 };
 
 export const resumeService = {
