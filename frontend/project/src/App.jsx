@@ -12,6 +12,7 @@ const AboutPage = lazy(() => import('./pages/AboutPage'));
 const PricingPage = lazy(() => import('./pages/PricingPage'));
 const History = lazy(() => import('./pages/History'));
 const EditResumePage = lazy(() => import('./pages/EditResumePage'));
+const ViewResumePage = lazy(() => import('./pages/ViewResumePage'));
 import { resumeService } from './api/resumeService';
 import ResumeUploader from './components/dashboard/ResumeUploader';
 import JobDescriptionInput from './components/dashboard/JobDescriptionInput';
@@ -73,6 +74,16 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <History />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/resumes/:id" 
+                  element={
+                    <ProtectedRoute>
+                      <Suspense fallback={<div className="w-full h-screen flex justify-center items-center"><Spinner /></div>}>
+                        <ViewResumePage />
+                      </Suspense>
                     </ProtectedRoute>
                   } 
                 />
