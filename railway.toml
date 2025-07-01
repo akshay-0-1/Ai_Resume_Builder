@@ -26,3 +26,11 @@ APP_JWT_PREFIX = "Bearer"
 GOOGLE_GEMINI_API_KEY = "AIzaSyB6YOQwRMLQdLofjPISvNjsvV8KvmK8-1I"
 GOOGLE_GEMINI_MODEL_NAME = "gemini-2.0-flash"
 LATEX_API_URL = "https://latex.ytotech.com/builds/sync"
+
+[services.backend.port]
+port = 8080
+protocol = "http"
+
+[services.backend.healthcheck]
+interval = 10000
+timeout = 5000
