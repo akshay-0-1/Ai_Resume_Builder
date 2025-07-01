@@ -6,8 +6,6 @@ rootDir = "backend/resumeTracker"
 dockerfile = "Dockerfile"
 # Maven build without tests
 buildCommand = "./mvnw -ntp package -DskipTests"
-# Command Railway runs to start your app
-startCommand = "java -jar target/*.jar"
 # Set the health-check endpoint (adjust if you remove actuator)
 healthcheckPath = "/actuator/health"
 # Only trigger a rebuild when backend files change
