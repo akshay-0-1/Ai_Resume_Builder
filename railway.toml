@@ -15,7 +15,7 @@ watchPaths = [
 ]
 
 [services.backend.env]
-BP_JAVA_VERSION = "21"
+BP_JVM_VERSION = "21.*"
 SPRING_DATASOURCE_URL = "jdbc:postgresql://ep-snowy-sky-a881do9z-pooler.eastus2.azure.neon.tech/neondb?sslmode=require&prepareThreshold=0&preparedStatementCacheQueries=0"
 SPRING_DATASOURCE_USERNAME = "neondb_owner"
 SPRING_DATASOURCE_PASSWORD = "npg_Fbqf9Sd2BzsZ"
