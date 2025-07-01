@@ -1,0 +1,28 @@
+# Railway configuration generated for backend Spring Boot service
+
+[services.backend]
+# Subdirectory containing the Spring Boot project
+rootDir = "backend/resumeTracker"
+# Maven build without tests
+buildCommand = "./mvnw -ntp package -DskipTests"
+# Command Railway runs to start your app
+startCommand = "java -jar target/*.jar"
+# Set the health-check endpoint (adjust if you remove actuator)
+healthcheckPath = "/actuator/health"
+# Only trigger a rebuild when backend files change
+watchPaths = [
+  "backend/resumeTracker/**"
+]
+
+[services.backend.env]
+BP_JAVA_VERSION = "21"
+SPRING_DATASOURCE_URL = "jdbc:postgresql://ep-snowy-sky-a881do9z-pooler.eastus2.azure.neon.tech/neondb?sslmode=require&prepareThreshold=0&preparedStatementCacheQueries=0"
+SPRING_DATASOURCE_USERNAME = "neondb_owner"
+SPRING_DATASOURCE_PASSWORD = "npg_Fbqf9Sd2BzsZ"
+APP_JWT_SECRET = "66b29f1cdc2220eccd65626e7dac8dbf5b6991d43a1563dd3743bbb5827e77ba"
+APP_JWT_EXPIRATION = "36000000"
+APP_JWT_HEADER = "Authorization"
+APP_JWT_PREFIX = "Bearer"
+GOOGLE_GEMINI_API_KEY = "AIzaSyB6YOQwRMLQdLofjPISvNjsvV8KvmK8-1I"
+GOOGLE_GEMINI_MODEL_NAME = "gemini-2.0-flash"
+LATEX_API_URL = "https://latex.ytotech.com/builds/sync"
