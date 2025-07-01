@@ -5,7 +5,6 @@
 rootDir = "backend/resumeTracker"
 dockerfile = "Dockerfile"
 # Maven build without tests
-buildCommand = "./mvnw -ntp package -DskipTests"
 # Set the health-check endpoint (adjust if you remove actuator)
 healthcheckPath = "/actuator/health"
 # Only trigger a rebuild when backend files change
